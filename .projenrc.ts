@@ -13,7 +13,7 @@ const project = new javascript.NodeProject({
   defaultReleaseBranch: "master",
   description:
     "Biome Grit rules for declarative Effect TypeScript composition and repository-wide style consistency.",
-  deps: ["@biomejs/biome@^2.2.4"],
+  deps: ["@biomejs/biome@^2.4.15"],
   devDeps: [
     "projen@^0.98.34",
     "tsx@^4.20.6",
@@ -103,7 +103,7 @@ project.addTask("refresh:biome-grammars", {
   exec: "tsx scripts/refresh-biome-grammars.ts",
 });
 
-project.testTask.reset("vitest run tests/rules/no-naked-object-state-update.test.ts");
+project.testTask.reset("vitest run tests/rules");
 
 project.defaultTask?.reset("tsx .projenrc.ts");
 
