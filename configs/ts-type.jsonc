@@ -3,7 +3,7 @@
   "plugins": [
     "./node_modules/@catenarycloud/linteffect/rules/no-effect-type-alias.grit",
     "./node_modules/@catenarycloud/linteffect/rules/no-model-overlay-cast.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-loose-tag-extraction.grit",
+    "./node_modules/@catenarycloud/linteffect/rules/no-manual-data-guard.grit",
     "./node_modules/@catenarycloud/linteffect/rules/no-unknown-boolean-coercion-helper.grit",
     "./node_modules/@catenarycloud/linteffect/rules/no-fromnullable-nullish-coalesce.grit",
     "./node_modules/@catenarycloud/linteffect/rules/no-option-boolean-normalization.grit",
