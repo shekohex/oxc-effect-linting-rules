@@ -7,7 +7,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -17,7 +17,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -27,7 +27,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -37,7 +37,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -47,7 +47,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -57,7 +57,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -67,7 +67,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -77,7 +77,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     },
@@ -87,7 +87,7 @@ or {
         $block <: contains `return $value` as $ret,
         register_diagnostic(
             span = $ret,
-            message = "Rule: avoid block-bodied arrow callbacks with returns. Why: they hide local control flow. Fix: use expression-only callbacks and move the logic into a single pipeline (pipe/Match/Option/A.map).",
+            message = "Rule: review block-bodied arrow callbacks before rewriting them. Inspect the callback's role in the surrounding data or Effect flow, including its data, state, and collection choices. Check whether an Effect-native construct expresses the work more clearly. Do not compress the callback into one line or extract a wrapper only to clear this advisory. Keep the block when it is the clearest form.",
             severity = "info"
         )
     }
