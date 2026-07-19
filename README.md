@@ -1,256 +1,171 @@
-# lintEffect
+# OXC Effect
 
-`lintEffect` is a Biome rule pack for Effect TypeScript. It enforces flat composition, explicit sequencing, readable control flow, and shapes that are easier to remediate mechanically.
+`@shekohex/oxc-effect` is an Oxlint JS plugin for Effect TypeScript. It enforces flat composition, explicit sequencing, readable control flow, and code shapes that are easier to remediate mechanically.
 
-The rules target patterns that make Effect code harder to scan and harder to rewrite safely: nested combinator towers, nested `Effect.gen`, sequencing hidden inside collection helpers, callback scaffolding, and wrapper-heavy type patterns. Diagnostics stay local to the offending call site so a human or coding agent can rewrite the exact shape without guessing repository conventions.
+Targets Effect v4 only. Effect v3 APIs and rule aliases are not supported.
 
-For rule authoring guidance, see [`docs/rule-guidance.md`](./docs/rule-guidance.md).
-
-## Example
-
-The animation below shows the rules applied to a file from Effect's Discord bot through Codex. The final result required steering, but the rewrite made code scans and message routing read as typed transforms and made fetch, keep, and drop behavior easier to follow.
-
-Source file: https://github.com/Effect-TS/discord-bot/blob/main/packages/discord/src/Messages.ts
-
-![messages refactor demo](./media/messagesRefactor.gif)
+All former Biome Grit rules are implemented with Oxlint's ESLint-compatible plugin API. The plugin uses `eslintCompatPlugin` and `createOnce`, so it runs through Oxlint's optimized JS plugin path while remaining ESLint-compatible.
 
 ## Install
 
 ```bash
-npm install -D @biomejs/biome @catenarycloud/linteffect
+npm install -D @shekohex/oxc-effect
 ```
 
 ```bash
-yarn add -D @biomejs/biome @catenarycloud/linteffect
+yarn add -D @shekohex/oxc-effect
 ```
 
 ```bash
-pnpm add -D @biomejs/biome @catenarycloud/linteffect
+pnpm add -D @shekohex/oxc-effect
 ```
 
-If you use Yarn Berry, set `nodeLinker: node-modules`. Biome does not currently resolve Grit plugin paths from package `extends` correctly through Plug'n'Play.
+`oxlint` and `@oxlint/plugins` are runtime dependencies, so the package CLI works without separate setup.
 
-The package publishes the full rule set plus three smaller presets. `core` contains the general Effect composition and control-flow rules. `web` contains the frontend and React rules. `ts-type` contains the type-modeling rules for casts, assertions, sentinel values, and wrapper-heavy shapes. The package root exports the full rule set.
+`effect` `^4.0.0-beta.0` is a required peer dependency. `@effect/atom-react` `^4.0.0-beta.0` is optional and only needed for React Atom projects.
 
-This split keeps preset composition in the package. Repositories extend one published entrypoint instead of assembling rule groups manually.
+## Configure Oxlint
+
+Use the full preset from `.oxlintrc.json`:
+
+```jsonc
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "./node_modules/@shekohex/oxc-effect/configs/full.jsonc"
+  ]
+}
+```
+
+Available presets:
+
+- `configs/full.jsonc`: every rule
+- `configs/core.jsonc`: Effect composition and control-flow rules
+- `configs/web.jsonc`: React and Effect Atom rules
+- `configs/ts-type.jsonc`: type-modeling and boundary rules
+
+Oxlint does not support npm shared-config names in `extends`. Use explicit `node_modules` file path shown above.
+
+## Select Rules
+
+Register plugin directly when using custom subset:
+
+```jsonc
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    {
+      "name": "effect",
+      "specifier": "@shekohex/oxc-effect"
+    }
+  ],
+  "rules": {
+    "effect/no-nested-effect-gen": "error",
+    "effect/no-effect-step-const-staging": "error",
+    "effect/no-return-in-arrow": "warn"
+  }
+}
+```
+
+Oxlint JS plugins are currently alpha. Pin package versions when adopting them in CI.
 
 ## CLI
 
-The package also ships a zero-setup CLI for repo-local lint runs. It writes a temporary Biome config with absolute paths to the packaged Grit rules, then runs the bundled Biome binary against the requested files or directories.
+Package ships zero-setup CLI. It writes temporary Oxlint config with selected preset and runs bundled Oxlint binary.
 
 ```bash
-npx @catenarycloud/linteffect check src/file.ts
-npx @catenarycloud/linteffect check src/messages --preset=core
-npx @catenarycloud/linteffect check src/messages --preset=core --guide-on-linting
-npx @catenarycloud/linteffect guide
+npx @shekohex/oxc-effect check src/file.ts
+npx @shekohex/oxc-effect check src/messages --preset=core
+npx @shekohex/oxc-effect check src/messages --preset=core --guide-on-linting
+npx @shekohex/oxc-effect guide
 ```
 
-`check` runs `biome lint`. `--preset` selects one published preset. `--guide` prints guidance content before lint (check only), and `--guide-on-linting` prints guidance only when diagnostics fail (check only). `guide` prints the packaged agent guidance path, and `guide --print` prints the guidance content. The CLI keeps the surface small and runs the packaged rule set for the chosen preset without local Biome configuration.
+`check` runs Oxlint. `--preset` accepts `full`, `core`, `web`, or `ts-type`. `--guide` prints remediation guide before linting. `--guide-on-linting` prints it only when Oxlint exits non-zero. `guide --print` prints packaged guide content.
 
-Use the CLI to lint an existing Effect codebase without installing the rule pack into that repository. Example:
+## Agent Guide
+
+Package includes remediation guidance at `docs/linting.md`.
 
 ```bash
-npx -y @catenarycloud/linteffect@dev check packages/discord-bot/src/NoEmbed.ts --preset=core
-```
-
-## Integrate into `biome.jsonc`
-
-Extend `@catenarycloud/linteffect` to load the complete published rule set.
-
-```jsonc
-{
-  "extends": ["@catenarycloud/linteffect"]
-}
-```
-
-Extend `@catenarycloud/linteffect/core` to load the rules that flatten pipelines, expose sequencing, and keep core Effect control flow readable.
-
-```jsonc
-{
-  "extends": ["@catenarycloud/linteffect/core"]
-}
-```
-
-Extend `@catenarycloud/linteffect/web` to load the frontend and React rules.
-
-```jsonc
-{
-  "extends": ["@catenarycloud/linteffect/web"]
-}
-```
-
-Extend `@catenarycloud/linteffect/ts-type` to load the type-modeling rules for casts, assertions, sentinel values, and wrapper-heavy shapes.
-
-```jsonc
-{
-  "extends": ["@catenarycloud/linteffect/ts-type"]
-}
-```
-
-## Agent guide workflow
-
-The package ships lint guidance in distribution (`docs/linting.md`). In install-path workflows (`biome lint` with `extends`), the agent will not load that file automatically. Instruct the agent to use the linting guide, so it can do better job fixing errors.
-
-Guide entrypoints:
-
-```bash
-npx @catenarycloud/linteffect guide
-npx @catenarycloud/linteffect guide --print
+npx @shekohex/oxc-effect guide
+npx @shekohex/oxc-effect guide --print
 ```
 
 ```bash
-node -p "require.resolve('@catenarycloud/linteffect/agent-guide')"
+node -p "require.resolve('@shekohex/oxc-effect/agent-guide')"
 ```
 
-## Add repository-local rules
+## Severity
 
-If the repository has local rules, layer them on top of the package preset in `biome.jsonc`.
+Most rules are errors. Shape guidance remains warnings:
+
+- `no-effect-succeed-variable`
+- `no-flatmap-ladder`
+- `no-option-effect-branch`
+- `no-return-in-arrow`
+- `no-return-in-callback`
+- `warn-effect-sync-wrapper`
+
+Biome allowed one Grit rule to emit different severities. Oxlint severity belongs to rule configuration, so former `no-match-effect-branch` implementation is represented as error rule `no-match-effect-branch` and warning rule `no-option-effect-branch`.
+
+## Rule Options
+
+Every rule supports `ignoredPathFragments`. Diagnostics are skipped when current file path contains any configured fragment.
 
 ```jsonc
 {
-  "extends": ["@catenarycloud/linteffect"],
-  "plugins": [
-    "./biome-plugins/my-project-specific-rule.grit"
-  ]
+  "rules": {
+    "effect/no-switch-statement": [
+      "error",
+      {
+        "ignoredPathFragments": ["/generated/", ".stories."]
+      }
+    ],
+    "effect/no-ternary": "off"
+  }
 }
 ```
 
-## Tooling advisory
+Use native severity to control activation:
 
-Use this rule pack with `@effect/tsgo`, `@typescript/native-preview`, and the `@effect/language-service` TypeScript language-service plugin in `tsconfig.json`.
+- `"off"`: disabled
+- `"warn"`: enabled as warning
+- `"error"`: enabled as error
 
-Biome enforces code-shape constraints. Tsgo provides fast compile feedback. The Effect language service provides editor and project-mode diagnostics. Together they keep remediation loops fast enough for active development and agent-guided rewrites.
-
-[Effect Language Service](https://github.com/Effect-TS/language-service)
-
-In the Tradedal.com codebase, a Biome lint over the backend Effect surface processes hundreds of TypeScript files and tens of thousands of lines in about 5 seconds on a Mac Mini M2. That keeps lint feedback in the same general feedback class as project-mode `tsgo` diagnostics. Agents usually lint a smaller file set, so feedback is faster.
-
-## How diagnostics help agents
-
-Each rule emits one focused diagnostic at the offending call site. The message states the rejected shape, why that shape is harmful, and which Effect shape the rewrite should move toward.
-
-That makes the remediation loop narrow. An agent can lint one file, inspect one message, rewrite one method, and rerun Biome without inferring the repository's preferred architecture from surrounding code.
-
-These rules are opinionated. Start with a smaller preset or a few specific rules when applying them to an existing codebase. For better agent rewrites, include the lint guidance in [docs/linting.md](./docs/linting.md) in the agent's lint task.
-
-## Examples
-
-### Nested Effect ladder to flat pipeline
-
-```ts
-const loadUser = Effect.map(
-  Effect.flatMap(getUserId, (userId) => fetchUser(userId)),
-  (user) => user.profile
-);
-```
-
-```ts
-const loadUser = getUserId.pipe(
-  Effect.flatMap((userId) => fetchUser(userId)),
-  Effect.map((user) => user.profile)
-);
-```
-
-The rewrite moves `getUserId` to the pipeline source, keeps the fetch step in `Effect.flatMap`, and keeps the projection in `Effect.map`. Data flow reads in execution order instead of through nested wrappers.
-
-### Nested `Effect.gen` to one generator
-
-```ts
-const saveTrade = Effect.gen(function* () {
-  const user = yield* getUser;
-  return yield* Effect.gen(function* () {
-    const trade = yield* createTrade(user.id);
-    return yield* persistTrade(trade);
-  });
-});
-```
-
-```ts
-const saveTrade = Effect.gen(function* () {
-  const user = yield* getUser;
-  const trade = yield* createTrade(user.id);
-  return yield* persistTrade(trade);
-});
-```
-
-The rewrite removes hidden sequencing and keeps one method responsible for one visible flow.
-
-### Sequential side effects hidden in `Effect.all`
-
-```ts
-const refresh = Effect.all(
-  [
-    Ref.set(statusRef, "loading"),
-    Effect.logDebug("refresh:start"),
-    Reactivity.invalidate(queryKey),
-  ],
-  { concurrency: 1 }
-).pipe(Effect.asVoid);
-```
-
-```ts
-const refresh = Ref.set(statusRef, "loading").pipe(
-  Effect.andThen(Effect.logDebug("refresh:start")),
-  Effect.andThen(Reactivity.invalidate(queryKey))
-);
-```
-
-The rewrite makes sequencing explicit instead of encoding it indirectly through an array plus `concurrency: 1`.
-
-### Block-bodied callback to expression callback
-
-```ts
-const normalized = Option.map(value, (current) => {
-  return current.trim();
-});
-```
-
-```ts
-const normalized = Option.map(value, (current) => current.trim());
-```
-
-The rewrite removes callback scaffolding that adds noise without changing control flow.
-
-## Repository layout
-
-- `biome.jsonc`: package root config entrypoint
-- `configs/*.jsonc`: published presets
-- `docs/linting.md`: lint remediation guidance for humans and coding agents
-- `rules/*.grit`: shipped Biome Grit rules
-- `examples/biome.effect.jsonc`: package usage example
-- `docs/rule-guidance.md`: rule authoring guidance
-- `scripts/refresh-biome-grammars.ts`: refresh step for Biome grammar references
-
-## Usage model
-
-Install `@catenarycloud/linteffect`, extend one published preset in `biome.jsonc`, and add repository-local overrides only where needed. That keeps upgrades, provenance, and version pinning under npm instead of local vendoring.
-
-## Direct rule paths
-
-Direct plugin paths also work when you want a custom subset instead of a preset.
-
-```jsonc
-{
-  "plugins": [
-    "./node_modules/@catenarycloud/linteffect/rules/no-effect-ladder.grit"
-  ]
-}
-```
-
-The package resolves to installed `node_modules/@catenarycloud/linteffect/rules/*.grit` paths because current Biome package-based `extends` resolution does not load Grit plugins relative to the package config file.
-
-## Grammar references
-
-The repository keeps `rules/js.ungram` and `rules/gritql.ungram` only for rule authoring and rule updates.
-
-Refresh them with:
+## Development
 
 ```bash
-yarn refresh:biome-grammars --ref <biome-git-ref>
+corepack yarn install --immutable
+corepack yarn test
+corepack yarn build
 ```
 
-Use an explicit Biome tag or commit when aligning the package to a specific upstream Biome version.
+Tests execute real Oxlint processes against TypeScript and TSX fixtures. Every exported rule has direct invalid-case coverage; complex structural rules also retain valid fixtures and edge-case coverage.
+
+## Layout
+
+- `plugin.js`: published Oxlint plugin entrypoint
+- `lib/ast.js`: shared ESTree traversal and matching helpers
+- `rules/*.js`: converted rule modules
+- `configs/*.jsonc`: published Oxlint presets
+- `bin/oxc-effect.mjs`: zero-setup CLI
+- `docs/linting.md`: remediation guide
+- `tests/rules`: real Oxlint integration tests
+
+## Tooling
+
+Use this rule pack with `@effect/tsgo`, `@typescript/native-preview`, and `@effect/language-service`. Oxlint enforces code shape, Tsgo provides compile feedback, and Effect language service provides project-aware diagnostics.
 
 ## Publishing
 
-This repository is Projen-managed. [`.projenrc.ts`](./.projenrc.ts) owns the npm package identity, published files, preset exports, and release automation for `@catenarycloud/linteffect`. The published package excludes the `.ungram` grammar references.
+Repository is Projen-managed. Edit `.projenrc.ts`, then run `corepack yarn tsx .projenrc.ts` when changing generated package metadata or workflows.
+
+`release.yml` uses npm provenance and GitHub OIDC from the `npm` environment. Release Please opens a release PR after releasable commits reach `master`; merging that PR publishes the resulting package.
+
+Because npm Trusted Publishers require an existing package, bootstrap `0.0.7` once from a trusted local machine:
+
+1. Run `corepack yarn build`.
+2. Authenticate with npm using `npm login`.
+3. Publish the generated tarball with `npm publish dist/js/shekohex-oxc-effect-0.0.7.tgz --access public`.
+4. On npmjs.com, configure GitHub Actions as trusted publisher with repository `shekohex/oxc-effect-linting-rules`, workflow `release.yml`, and environment `npm`.
+5. Future Release Please versions authenticate through OIDC only; no npm token or GitHub secret is required.

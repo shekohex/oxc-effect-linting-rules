@@ -42,6 +42,7 @@ jobs:
   publish_npm:
     needs: release_please
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -58,6 +59,7 @@ jobs:
         with:
           node-version: 24.11.1
           package-manager-cache: false
+          registry-url: https://registry.npmjs.org
       - name: Install dependencies
         run: yarn install --immutable
       - name: Test
@@ -65,10 +67,11 @@ jobs:
       - name: Publish
         env:
           NPM_CONFIG_PROVENANCE: "true"
-        run: npm publish --access public
+        run: npm publish --access public --provenance
   publish_npm_dev:
     needs: release_please_dev
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -85,6 +88,7 @@ jobs:
         with:
           node-version: 24.11.1
           package-manager-cache: false
+          registry-url: https://registry.npmjs.org
       - name: Install dependencies
         run: yarn install --immutable
       - name: Test
@@ -103,4 +107,4 @@ jobs:
             echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published"
             exit 0
           fi
-          npm publish --tag dev --access public
+          npm publish --tag dev --access public --provenance

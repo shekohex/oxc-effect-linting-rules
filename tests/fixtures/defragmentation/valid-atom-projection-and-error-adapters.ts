@@ -1,5 +1,5 @@
-import { Atom, Result } from "@effect-atom/atom-react";
-import { Data, Match, Option } from "effect";
+import { Data, Match, Option, Result } from "effect";
+import { Atom } from "effect/unstable/reactivity";
 import * as A from "effect/Array";
 
 type Row = {

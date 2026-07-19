@@ -18,7 +18,7 @@ export function ItemPanel(props: { readonly loadState: LoadState; readonly id: s
     onInitial: () => <div>Loading item</div>,
     onSuccess(success) {
       const isWaiting = success.waiting;
-      const itemOption = Option.fromNullable(
+    const itemOption = Option.fromNullishOr(
         success.items.find((item) => item.id === props.id),
       );
       const missingItemView = <div>Item record not found</div>;

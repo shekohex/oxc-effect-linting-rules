@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { fixtureRoot, lintWithRule } from "./ruleTestHarness";
+import { fixtureRoot, lintSourceWithRule, lintWithRule } from "./ruleTestHarness";
 
 const fixtures = fixtureRoot("no-effect-wrapper-alias");
 
@@ -12,7 +12,7 @@ describe("no-effect-wrapper-alias", () => {
     );
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain("Rule: avoid Effect wrapper aliases");
+    expect(result.output).toContain("Detected: a local declaration that only aliases an Effect pipeline");
   });
 
   it("It allows plain domain functions", () => {
@@ -22,5 +22,14 @@ describe("no-effect-wrapper-alias", () => {
     );
 
     expect(result.status).toBe(0);
+  });
+
+  it("It allows plain staged Effect values owned by the staging rule", () => {
+    const result = lintSourceWithRule(
+      "no-effect-wrapper-alias",
+      "const value = Effect.succeed(input);",
+    );
+
+    expect(result.output).not.toContain("Detected: a local declaration that only aliases an Effect pipeline");
   });
 });

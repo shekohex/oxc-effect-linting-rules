@@ -1,9 +1,0 @@
-language js(typescript, jsx)
-
-`Effect.succeed("$_")` as $sentinel where {
-    register_diagnostic(
-        span = $sentinel,
-        message = "Rule: avoid returning string tokens. Why: it encodes control flow and forces defensive branching. Fix: return domain values (Option/Either/tagged unions) or real Effect results instead.",
-        severity = "error"
-    )
-}

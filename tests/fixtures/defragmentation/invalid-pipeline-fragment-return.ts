@@ -8,13 +8,13 @@ export const resolveRouteSymbol = (
   asPath: string,
 ): Option.Option<string> => {
   const symbolFromQuery = pipe(
-    Option.fromNullable(querySymbol),
+    Option.fromNullishOr(querySymbol),
     Option.filter((value): value is string => typeof value === "string"),
   );
   const symbolFromPath = pipe(
-    Option.fromNullable(asPath.split("?")[0]),
+    Option.fromNullishOr(asPath.split("?")[0]),
     Option.flatMap((path) =>
-      Option.fromNullable(path.match(/^\/securities\/([^/]+)$/)?.[1]),
+      Option.fromNullishOr(path.match(/^\/securities\/([^/]+)$/)?.[1]),
     ),
   );
 

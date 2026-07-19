@@ -5,15 +5,15 @@ import { fixtureRoot, lintWithRule } from "./ruleTestHarness";
 const fixtures = fixtureRoot("no-effect-side-effect-wrapper");
 
 describe("no-effect-side-effect-wrapper", () => {
-  it("It catches direct Effect.as and Effect.zipRight wrappers around obvious side effects", () => {
+  it("It catches direct Effect.as and Effect.andThen wrappers around obvious side effects", () => {
     const result = lintWithRule(
       "no-effect-side-effect-wrapper",
       path.join(fixtures, "invalid-direct-side-effect-wrapper.ts"),
     );
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain("Rule: avoid Effect.as for side effects.");
-    expect(result.output).toContain("Rule: avoid Effect.zipRight for side effects.");
+    expect(result.output).toContain("Detected: Effect.as applied to an Effect containing");
+    expect(result.output).toContain("Detected: data-first Effect.andThen whose first argument");
   });
 
   it("It allows named Effect sequencing without guessing side effects from variable names", () => {

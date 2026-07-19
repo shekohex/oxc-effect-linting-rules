@@ -4,7 +4,8 @@ import { fixtureRoot, lintWithRule } from "./ruleTestHarness";
 
 const fixtures = fixtureRoot("no-manual-data-guard");
 const ruleName = "no-manual-data-guard";
-const diagnostic = "Rule: avoid manual data guards.";
+const diagnostic =
+  "Detected: a user-defined type predicate that narrows an unknown or any parameter without decoding it.";
 
 describe(ruleName, () => {
   it("It catches structural manual data guards", () => {
@@ -15,7 +16,7 @@ describe(ruleName, () => {
 
     expect(result.status).toBe(1);
     expect(result.output).toContain(diagnostic);
-    expect(result.output.match(/Rule: avoid manual data guards\./g)).toHaveLength(2);
+    expect(result.output.match(/Detected: a user-defined type predicate/g)).toHaveLength(2);
   });
 
   it("It catches primitive refinement of unknown data", () => {
@@ -26,7 +27,7 @@ describe(ruleName, () => {
 
     expect(result.status).toBe(1);
     expect(result.output).toContain(diagnostic);
-    expect(result.output.match(/Rule: avoid manual data guards\./g)).toHaveLength(1);
+    expect(result.output.match(/Detected: a user-defined type predicate/g)).toHaveLength(1);
   });
 
   it("It allows Schema decoding and Match discrimination", () => {

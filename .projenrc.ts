@@ -14,12 +14,16 @@ const currentPackageVersion = fs.existsSync(packageManifestPath)
 const project = new javascript.NodeProject({
   authorName: "Roman Naumenko",
   authorEmail: "hi@catenary.cloud",
+  bin: {
+    "oxc-effect": "bin/oxc-effect.mjs",
+  },
   defaultReleaseBranch: "master",
   description:
-    "Biome Grit rules for declarative Effect TypeScript composition and repository-wide style consistency.",
-  deps: ["@biomejs/biome@^2.5.4"],
+    "Oxlint rules for declarative Effect TypeScript composition and repository-wide style consistency.",
+  deps: ["@oxlint/plugins@^1.74.0", "oxlint@^1.74.0"],
   devDeps: [
     "projen@^0.98.34",
+    "effect@4.0.0-beta.99",
     "tsx@^4.20.6",
     "typescript@^5.9.3",
     "vitest@^4.1.1",
@@ -28,9 +32,11 @@ const project = new javascript.NodeProject({
   github: true,
   jest: false,
   keywords: [
-    "biome",
-    "grit",
+    "oxc",
+    "oxlint",
+    "eslint-plugin",
     "effect",
+    "effect-v4",
     "typescript",
     "lint",
     "agent",
@@ -39,17 +45,21 @@ const project = new javascript.NodeProject({
   license: "MIT",
   licensed: true,
   majorVersion: 0,
-  name: "lintEffect",
+  name: "oxcEffect",
   npmAccess: javascript.NpmAccess.PUBLIC,
   npmDistTag: "latest",
   packageManager: javascript.NodePackageManager.YARN_BERRY,
-  packageName: "@catenarycloud/linteffect",
+  packageName: "@shekohex/oxc-effect",
+  peerDependencyOptions: {
+    pinnedDevDependency: false,
+  },
+  peerDeps: ["effect@^4.0.0-beta.0", "@effect/atom-react@^4.0.0-beta.0"],
   prettier: false,
   releaseToNpm: true,
   release: true,
   releaseTrigger: ReleaseTrigger.workflowDispatch(),
   releasableCommits: ReleasableCommits.featuresAndFixes(),
-  repository: "https://github.com/OperationalFallacy/biome-effect-linting-rules.git",
+  repository: "git+https://github.com/shekohex/oxc-effect-linting-rules.git",
   workflowNodeVersion: "24.11.1",
   yarnBerryOptions: {
     version: yarnVersion,
@@ -65,9 +75,10 @@ project.release?.publisher?.publishToNpm({
 });
 
 project.package.addField("files", [
-  "biome.jsonc",
+  "plugin.js",
   "bin",
-  "rules/*.grit",
+  "lib/*.js",
+  "rules/*.js",
   "configs",
   "examples",
   "docs",
@@ -75,7 +86,12 @@ project.package.addField("files", [
   "LICENSE",
 ]);
 
-project.package.addField("bin", "./bin/linteffect.mjs");
+project.package.addField("type", "module");
+project.package.addField("peerDependenciesMeta", {
+  "@effect/atom-react": {
+    optional: true,
+  },
+});
 
 project.package.addField("publishConfig", {
   access: "public",
@@ -85,11 +101,12 @@ project.package.addVersion(currentPackageVersion);
 
 project.package.addField("repository", {
   type: "git",
-  url: "https://github.com/OperationalFallacy/biome-effect-linting-rules.git",
+  url: "git+https://github.com/shekohex/oxc-effect-linting-rules.git",
 });
 
 project.package.addField("exports", {
-  ".": "./configs/full.jsonc",
+  ".": "./plugin.js",
+  "./plugin": "./plugin.js",
   "./recommended": "./configs/full.jsonc",
   "./core": "./configs/core.jsonc",
   "./web": "./configs/web.jsonc",
@@ -103,10 +120,6 @@ project.gitignore.exclude("/refs/");
 
 project.addTask("pack:dry-run", {
   exec: "npm pack --dry-run",
-});
-
-project.addTask("refresh:biome-grammars", {
-  exec: "tsx scripts/refresh-biome-grammars.ts",
 });
 
 project.testTask.reset("vitest run tests/rules");
@@ -266,6 +279,7 @@ jobs:
   publish_npm:
     needs: release_please
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -282,6 +296,7 @@ jobs:
         with:
           node-version: 24.11.1
           package-manager-cache: false
+          registry-url: https://registry.npmjs.org
       - name: Install dependencies
         run: yarn install --immutable
       - name: Test
@@ -289,10 +304,11 @@ jobs:
       - name: Publish
         env:
           NPM_CONFIG_PROVENANCE: "true"
-        run: npm publish --access public
+        run: npm publish --access public --provenance
   publish_npm_dev:
     needs: release_please_dev
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -309,6 +325,7 @@ jobs:
         with:
           node-version: 24.11.1
           package-manager-cache: false
+          registry-url: https://registry.npmjs.org
       - name: Install dependencies
         run: yarn install --immutable
       - name: Test
@@ -327,7 +344,7 @@ jobs:
             echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published"
             exit 0
           fi
-          npm publish --tag dev --access public
+          npm publish --tag dev --access public --provenance
 `;
 
 fs.chmodSync(releaseWorkflowPath, 0o644);
@@ -342,7 +359,7 @@ const devReleasePleaseConfig = {
       "bump-patch-for-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
-      "package-name": "@catenarycloud/linteffect",
+      "package-name": "@shekohex/oxc-effect",
       prerelease: true,
       "prerelease-type": "dev",
       "release-type": "node",
@@ -354,4 +371,14 @@ const devReleasePleaseConfig = {
 fs.writeFileSync(
   devReleasePleaseConfigPath,
   `${JSON.stringify(devReleasePleaseConfig, null, 2)}\n`,
+);
+
+const releasePleaseConfigPath = "release-please-config.json";
+const releasePleaseConfig = JSON.parse(
+  fs.readFileSync(releasePleaseConfigPath, "utf8"),
+);
+releasePleaseConfig.packages["."]["package-name"] = "@shekohex/oxc-effect";
+fs.writeFileSync(
+  releasePleaseConfigPath,
+  `${JSON.stringify(releasePleaseConfig, null, 2)}\n`,
 );

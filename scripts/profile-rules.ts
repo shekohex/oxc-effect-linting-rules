@@ -113,48 +113,57 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   return { each, exceptRules, preset, rules, targets };
 }
 
-function resolveBiomeBin(): string {
-  const biomePackagePath = require.resolve("@biomejs/biome/package.json");
-  const biomePackage = require(biomePackagePath);
-  const biomeBinRelative =
-    typeof biomePackage.bin === "string" ? biomePackage.bin : biomePackage.bin.biome;
+function resolveOxlintBin(): string {
+  const oxlintPackagePath = require.resolve("oxlint/package.json");
+  const oxlintPackage = require(oxlintPackagePath);
+  const oxlintBinRelative =
+    typeof oxlintPackage.bin === "string" ? oxlintPackage.bin : oxlintPackage.bin.oxlint;
 
-  return path.resolve(path.dirname(biomePackagePath), biomeBinRelative);
+  return path.resolve(path.dirname(oxlintPackagePath), oxlintBinRelative);
 }
 
-function loadPresetPlugins(preset: string): string[] {
+function loadPresetRules(preset: string): ReadonlyArray<readonly [string, string]> {
   const configPath = path.join(repoRoot, "configs", presets.get(preset)!);
-  const config = JSON.parse(readFileSync(configPath, "utf8")) as { plugins?: string[] };
+  const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+    rules?: Record<string, string>;
+  };
 
-  return (config.plugins ?? []).map((pluginPath) =>
-    pluginPath.replace(
-      "./node_modules/@catenarycloud/linteffect/",
-      `${repoRoot}/`,
-    ),
-  );
+  return Object.entries(config.rules ?? {});
 }
 
-function ruleName(pluginPath: string): string {
-  return path.basename(pluginPath, ".grit");
+function ruleName(configuredName: string): string {
+  return configuredName.replace("effect/", "");
 }
 
-function runBiome(label: string, plugins: readonly string[], targets: readonly string[]): void {
-  const tempDir = mkdtempSync(path.join(tmpdir(), "linteffect-profile-"));
-  const configPath = path.join(tempDir, "biome.json");
+function runOxlint(
+  label: string,
+  configuredRules: ReadonlyArray<readonly [string, string]>,
+  targets: readonly string[],
+): void {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "oxc-effect-profile-"));
+  const configPath = path.join(tempDir, ".oxlintrc.json");
 
   try {
-    writeFileSync(configPath, `${JSON.stringify({ plugins }, null, 2)}\n`, "utf8");
+    writeFileSync(
+      configPath,
+      `${JSON.stringify(
+        {
+          jsPlugins: [{ name: "effect", specifier: path.join(repoRoot, "plugin.js") }],
+          rules: Object.fromEntries(configuredRules),
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
 
     const startedAt = performance.now();
     const result = spawnSync(
       process.execPath,
       [
-        resolveBiomeBin(),
-        "lint",
-        `--config-path=${configPath}`,
-        "--reporter=summary",
-        "--max-diagnostics=20",
-        "--no-errors-on-unmatched",
+        resolveOxlintBin(),
+        "-c",
+        configPath,
         ...targets,
       ],
       { cwd: process.cwd(), encoding: "utf8" },
@@ -169,32 +178,34 @@ function runBiome(label: string, plugins: readonly string[], targets: readonly s
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  const presetPlugins = loadPresetPlugins(args.preset);
-  const selectedPlugins =
+  const presetRules = loadPresetRules(args.preset);
+  const selectedRules =
     args.rules.length === 0
-      ? presetPlugins.filter((pluginPath) => !args.exceptRules.includes(ruleName(pluginPath)))
-      : presetPlugins.filter(
-          (pluginPath) =>
-            args.rules.includes(ruleName(pluginPath)) &&
-            !args.exceptRules.includes(ruleName(pluginPath)),
+      ? presetRules.filter(([name]) => !args.exceptRules.includes(ruleName(name)))
+      : presetRules.filter(
+          ([name]) =>
+            args.rules.includes(ruleName(name)) &&
+            !args.exceptRules.includes(ruleName(name)),
         );
 
-  if (selectedPlugins.length === 0) {
+  if (selectedRules.length === 0) {
     throw new Error("No matching rules selected.");
   }
 
   process.stdout.write("rule\tstatus\telapsed_ms\n");
 
   if (args.each) {
-    for (const pluginPath of selectedPlugins) {
-      runBiome(ruleName(pluginPath), [pluginPath], args.targets);
+    for (const configuredRule of selectedRules) {
+      runOxlint(ruleName(configuredRule[0]), [configuredRule], args.targets);
     }
     return;
   }
 
-  runBiome(
-    args.rules.length === 0 ? args.preset : selectedPlugins.map(ruleName).join(","),
-    selectedPlugins,
+  runOxlint(
+    args.rules.length === 0
+      ? args.preset
+      : selectedRules.map(([name]) => ruleName(name)).join(","),
+    selectedRules,
     args.targets,
   );
 }

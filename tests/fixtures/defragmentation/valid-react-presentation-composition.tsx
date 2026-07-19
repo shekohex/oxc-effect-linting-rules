@@ -21,7 +21,7 @@ declare const approveAtom: (key: string) => () => void;
 
 // Proper usage: a small message adapter returns a primitive presentation value.
 const taskFailureMessage = (task: TaskView) =>
-  Option.match(Option.fromNullable(task.failureMessage), {
+  Option.match(Option.fromNullishOr(task.failureMessage), {
     onNone: () => "No failure reason returned.",
     onSome: (message) => message,
   });

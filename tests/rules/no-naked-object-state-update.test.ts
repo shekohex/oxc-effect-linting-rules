@@ -10,7 +10,7 @@ describe("no-naked-object-state-update", () => {
     const result = lintWithRule(ruleName, path.join(fixtures, "invalid-spread.ts"));
     expect(result.status).toBe(1);
     expect(result.output).toContain(
-      "Rule: avoid naked JS state patching/rebuild and raw JSON shortcuts in Effect transitions.",
+      "Detected: Ref.update or Ref.modify returning an object built with spread syntax.",
     );
   });
 
@@ -18,7 +18,7 @@ describe("no-naked-object-state-update", () => {
     const result = lintWithRule(ruleName, path.join(fixtures, "invalid-from-entries.ts"));
     expect(result.status).toBe(1);
     expect(result.output).toContain(
-      "Rule: avoid naked JS state patching/rebuild and raw JSON shortcuts in Effect transitions.",
+      "Detected: Object.fromEntries applied to data produced from Object.entries.",
     );
   });
 
@@ -34,7 +34,7 @@ describe("no-naked-object-state-update", () => {
     const result = lintWithRule(ruleName, path.join(fixtures, "invalid-object-assign.ts"));
     expect(result.status).toBe(1);
     expect(result.output).toContain(
-      "Rule: avoid naked JS state patching/rebuild and raw JSON shortcuts in Effect transitions.",
+      "Detected: Object.assign({}, ...) used to merge three or more objects.",
     );
   });
 
@@ -42,7 +42,7 @@ describe("no-naked-object-state-update", () => {
     const result = lintWithRule(ruleName, path.join(fixtures, "invalid-json-transition.ts"));
     expect(result.status).toBe(1);
     expect(result.output).toContain(
-      "Rule: avoid naked JS state patching/rebuild and raw JSON shortcuts in Effect transitions.",
+      "Detected: JSON.parse or JSON.stringify in state-oriented code.",
     );
   });
 

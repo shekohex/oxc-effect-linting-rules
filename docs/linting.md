@@ -4,9 +4,9 @@ Linting enforces declarative control flow and blocks drift toward imperative or 
 
 ### Scope
 
-This document defines how to respond to diagnostics from the `lintEffect` rule pack.
+This document defines how to respond to diagnostics from the `@shekohex/oxc-effect` rule pack.
 
-It is written for human maintainers and coding agents that are rewriting code after Biome reports a rule violation.
+It is written for human maintainers and coding agents that are rewriting code after Oxlint reports a rule violation.
 
 ### Rewrite method
 
@@ -22,7 +22,7 @@ Do not add helper wrappers whose only purpose is to return Effects.
 
 Do not hide sequencing through nested `pipe` ladders, flatMap towers, or generator nesting.
 
-Do not implement control flow with `switch` or `case`. Use `Match.value`, `Option.match`, `Either.match`, or `Effect.if` so the decision stays explicit inside one Effect pipeline.
+Do not implement control flow with `switch` or `case`. Use `Match.value`, `Option.match`, `Result.match`, or `Effect.if` so the decision stays explicit inside one Effect pipeline.
 
 Do not add post-decode guards or fallback defaults unless the domain actually requires them.
 
@@ -36,23 +36,23 @@ Use the smallest working directory that contains all files you are changing.
 
 Run one summary pass for that directory to establish the baseline:
 
-`npx @biomejs/biome lint <working-dir> --reporter=summary`
+`npx oxlint <working-dir>`
 
 During remediation, run file-level lint only for the files you edit:
 
-`npx @biomejs/biome lint <file>`
+`npx oxlint <file>`
 
 Rerun dir summary lint only after the touched files are clean or when you need a final status check.
 
 If the summary output includes unrelated files, reduce the scope to a smaller directory and continue with file-level checks.
 
-Run lint from the package or repository root that owns the Biome configuration for the files you are editing.
+Run lint from the package or repository root that owns the Oxlint configuration for the files you are editing.
 
 ### Compile checks
 
 Run compile checks during and after file-level lint remediation because structural rewrites can introduce TypeScript regressions.
 
-Treat compile as a completion gate for the edited files. Lint remediation is complete when file-level Biome is clean and the project compiler reports no relevant problems in the touched files.
+Treat compile as a completion gate for the edited files. Lint remediation is complete when file-level Oxlint is clean and the project compiler reports no relevant problems in the touched files.
 
 Use the repository's project-mode compile command. Do not substitute ad hoc single-file `tsc` invocations for the normal compile gate unless the repository explicitly documents that workflow.
 
@@ -94,6 +94,6 @@ Finish with one summary pass for the chosen working directory, then run the requ
 
 Completion criteria:
 
-- Touched files are free of Biome errors.
+- Touched files are free of Oxlint errors.
 - Touched files have no related TypeScript diagnostics from the required project compile check.
 - Changed methods read as one explicit flow with no defensive wrappers or lint-appeasement workarounds.

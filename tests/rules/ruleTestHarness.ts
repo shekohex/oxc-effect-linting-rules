@@ -15,31 +15,67 @@ export const repoRoot = path.resolve(
 export const fixtureRoot = (fixtureName: string) =>
   path.join(repoRoot, "tests", "fixtures", fixtureName);
 
-function resolveBiomeBin() {
-  const biomePackagePath = require.resolve("@biomejs/biome/package.json");
-  const biomePackage = require(biomePackagePath);
-  const biomeBinRelative =
-    typeof biomePackage.bin === "string" ? biomePackage.bin : biomePackage.bin.biome;
-  return path.resolve(path.dirname(biomePackagePath), biomeBinRelative);
+function resolveOxlintBin() {
+  const oxlintPackagePath = require.resolve("oxlint/package.json");
+  const oxlintPackage = require(oxlintPackagePath);
+  const oxlintBinRelative =
+    typeof oxlintPackage.bin === "string" ? oxlintPackage.bin : oxlintPackage.bin.oxlint;
+  return path.resolve(path.dirname(oxlintPackagePath), oxlintBinRelative);
 }
 
-export function lintWithRule(ruleName: string, fixtureFile: string) {
-  const tempDir = mkdtempSync(path.join(tmpdir(), "linteffect-rule-test-"));
-  const configPath = path.join(tempDir, "biome.json");
-  const rulePath = path.join(repoRoot, "rules", `${ruleName}.grit`);
+const warningRules = new Set([
+  "no-effect-succeed-variable",
+  "no-flatmap-ladder",
+  "no-option-effect-branch",
+  "no-return-in-arrow",
+  "no-return-in-callback",
+  "warn-effect-sync-wrapper",
+]);
 
-  writeFileSync(configPath, `${JSON.stringify({ plugins: [rulePath] }, null, 2)}\n`, "utf8");
+type RuleSeverity = "off" | "warn" | "error";
+type RuleConfiguration = RuleSeverity | readonly [RuleSeverity, Record<string, unknown>];
+
+export function lintWithRule(
+  ruleName: string,
+  fixtureFile: string,
+  ruleConfiguration?: RuleConfiguration,
+) {
+  return lintFilesWithRule(ruleName, [fixtureFile], ruleConfiguration);
+}
+
+export function lintFilesWithRule(
+  ruleName: string,
+  fixtureFiles: readonly string[],
+  ruleConfiguration?: RuleConfiguration,
+) {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "oxc-effect-rule-test-"));
+  const configPath = path.join(tempDir, ".oxlintrc.json");
+  const pluginPath = path.join(repoRoot, "plugin.js");
+
+  writeFileSync(
+    configPath,
+    `${JSON.stringify(
+      {
+        jsPlugins: [{ name: "effect", specifier: pluginPath }],
+        rules: {
+          [`effect/${ruleName}`]:
+            ruleConfiguration ?? (warningRules.has(ruleName) ? "warn" : "error"),
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 
   try {
     const result = spawnSync(
       process.execPath,
       [
-        resolveBiomeBin(),
-        "lint",
-        "--reporter=json",
-        "--max-diagnostics=none",
-        `--config-path=${configPath}`,
-        fixtureFile,
+        resolveOxlintBin(),
+        "-c",
+        configPath,
+        ...fixtureFiles,
       ],
       { cwd: repoRoot, encoding: "utf8" },
     );
@@ -48,6 +84,22 @@ export function lintWithRule(ruleName: string, fixtureFile: string) {
       status: result.status ?? 1,
       output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
     };
+  } finally {
+    rmSync(tempDir, { force: true, recursive: true });
+  }
+}
+
+export function lintSourceWithRule(
+  ruleName: string,
+  source: string,
+  ruleConfiguration?: RuleConfiguration,
+) {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "oxc-effect-source-test-"));
+  const fixtureFile = path.join(tempDir, "fixture.tsx");
+  writeFileSync(fixtureFile, source, "utf8");
+
+  try {
+    return lintWithRule(ruleName, fixtureFile, ruleConfiguration);
   } finally {
     rmSync(tempDir, { force: true, recursive: true });
   }

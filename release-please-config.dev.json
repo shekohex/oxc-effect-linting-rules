@@ -5,7 +5,7 @@
       "bump-patch-for-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
-      "package-name": "@catenarycloud/linteffect",
+      "package-name": "@shekohex/oxc-effect",
       "prerelease": true,
       "prerelease-type": "dev",
       "release-type": "node",

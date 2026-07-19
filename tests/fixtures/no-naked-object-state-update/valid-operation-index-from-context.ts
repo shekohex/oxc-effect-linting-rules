@@ -18,7 +18,7 @@ export const operationIndexFromContext = (
   LambdaDurableStateSchema.fields.operations.make(
     Object.fromEntries(
       operations.flatMap((operation) =>
-        Option.match(Option.fromNullable(operation.Id), {
+      Option.match(Option.fromNullishOr(operation.Id), {
           onNone: () => [],
           onSome: (id) => [[id, operation]],
         }),

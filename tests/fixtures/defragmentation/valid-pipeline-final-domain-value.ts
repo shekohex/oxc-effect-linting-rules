@@ -20,7 +20,7 @@ export const resolveRouteSymbol = (
   asPath: string,
 ): Option.Option<string> =>
   pipe(
-    Option.fromNullable(routeParts(querySymbol, asPath).query),
+      Option.fromNullishOr(routeParts(querySymbol, asPath).query),
     Option.filter((value): value is string => typeof value === "string"),
     Option.map((value) => decodeURIComponent(value).toUpperCase()),
   );

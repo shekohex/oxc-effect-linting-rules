@@ -1,11 +1,16 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
-  "plugins": [
-    "./node_modules/@catenarycloud/linteffect/rules/no-react-state.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-render-side-effects.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-atom-registry-effect-sync.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-family-collection-read.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-inline-runtime-provide.grit",
-    "./node_modules/@catenarycloud/linteffect/rules/no-naked-object-state-update.grit"
-  ]
+  "jsPlugins": [
+    {
+      "name": "effect",
+      "specifier": "@shekohex/oxc-effect"
+    }
+  ],
+  "rules": {
+    "effect/no-atom-registry-effect-sync": "error",
+    "effect/no-family-collection-read": "error",
+    "effect/no-inline-runtime-provide": "error",
+    "effect/no-naked-object-state-update": "error",
+    "effect/no-react-state": "error",
+    "effect/no-render-side-effects": "error"
+  }
 }
