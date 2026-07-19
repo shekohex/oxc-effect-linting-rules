@@ -6,7 +6,8 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "package-name": "@shekohex/oxc-effect",
-      "release-type": "node"
+      "release-type": "node",
+      "bump-minor-pre-major": true
     }
   }
 }

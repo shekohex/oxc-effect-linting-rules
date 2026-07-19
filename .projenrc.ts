@@ -103,6 +103,20 @@ project.package.addField("repository", {
   type: "git",
   url: "git+https://github.com/shekohex/oxc-effect-linting-rules.git",
 });
+project.package.addField("main", "plugin.js");
+project.package.addField("directories", {
+  doc: "docs",
+  example: "examples",
+  lib: "lib",
+  test: "tests",
+});
+project.package.addField("bugs", {
+  url: "https://github.com/shekohex/oxc-effect-linting-rules/issues",
+});
+project.package.addField(
+  "homepage",
+  "https://github.com/shekohex/oxc-effect-linting-rules#readme",
+);
 
 project.package.addField("exports", {
   ".": "./plugin.js",
@@ -198,6 +212,15 @@ if (project.github) {
 }
 
 project.synth();
+
+const synthesizedPackageManifest = JSON.parse(
+  fs.readFileSync(packageManifestPath, "utf8"),
+);
+synthesizedPackageManifest.author = "Roman Naumenko <hi@catenary.cloud>";
+fs.writeFileSync(
+  packageManifestPath,
+  `${JSON.stringify(synthesizedPackageManifest, null, 2)}\n`,
+);
 
 const upgradeWorkflowPath = ".github/workflows/upgrade-master.yml";
 const upgradeWorkflowFile = fs.existsSync(upgradeWorkflowPath)
@@ -356,6 +379,7 @@ const devReleasePleaseConfig = {
   $schema: "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   packages: {
     ".": {
+      "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
@@ -378,6 +402,7 @@ const releasePleaseConfig = JSON.parse(
   fs.readFileSync(releasePleaseConfigPath, "utf8"),
 );
 releasePleaseConfig.packages["."]["package-name"] = "@shekohex/oxc-effect";
+releasePleaseConfig.packages["."]["bump-minor-pre-major"] = true;
 fs.writeFileSync(
   releasePleaseConfigPath,
   `${JSON.stringify(releasePleaseConfig, null, 2)}\n`,
