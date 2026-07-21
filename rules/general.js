@@ -34,12 +34,6 @@ const messages = {
     fix: "start from the side-effecting Effect and make subsequent work visible in one pipe with Effect.andThen, Effect.tap, or Effect.flatMap.",
     preserve: "side-effect order, discarded versus retained values, lazy execution, failures, and requirements.",
   }),
-  noEffectStepConstStaging: remediationMessage({
-    detected: "a const initialized with an intermediate Effect call or Effect pipeline.",
-    problem: "later code must chase the const to reconstruct one operation's validation, decisions, and sequencing.",
-    fix: "inline the staged Effect into the owning visible pipeline; keep a local only for a final domain value, or extract a complete reusable operation with a clear contract.",
-    preserve: "call count, lazy execution, local scope, typed errors, requirements, and reuse semantics.",
-  }),
   noFragmentedConstAssembly: remediationMessage({
     detected: "an object literal spreading the result of a function call.",
     problem: "the final object contract is split between the object and an opaque generated fragment.",
@@ -154,23 +148,6 @@ export const generalRules = {
     }),
   ),
 
-  "no-effect-step-const-staging": defineRule(
-    messages.noEffectStepConstStaging,
-    (_context, report) => ({
-      VariableDeclaration(node) {
-        if (!isConstDeclaration(node)) return;
-        const stagesEffect = node.declarations.some((declarator) => {
-          const initializer = unwrapExpression(declarator.init);
-          return (
-            isEffectCall(initializer) ||
-            (isPipeCall(initializer) && contains(initializer, isEffectCall))
-          );
-        });
-        if (stagesEffect) report(node);
-      },
-    }),
-  ),
-
   "no-fragmented-const-assembly": defineRule(
     messages.noFragmentedConstAssembly,
     (_context, report) => ({
@@ -232,7 +209,7 @@ export const generalRules = {
   "no-return-in-callback": defineRule(messages.noReturnInCallback, (_context, report) => ({
     CallExpression(node) {
       for (const argument of node.arguments) {
-        if (argument?.type !== "FunctionExpression") continue;
+        if (argument?.type !== "FunctionExpression" || argument.generator) continue;
         returnStatementsInOwnBody(argument).forEach((returnStatement) => report(returnStatement));
       }
     },

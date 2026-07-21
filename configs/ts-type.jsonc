@@ -9,11 +9,8 @@
     "effect/no-effect-type-alias": "error",
     "effect/no-option-nullish-rewrap": "error",
     "effect/no-manual-data-guard": "error",
-    "effect/no-manual-effect-channels": "error",
     "effect/no-model-overlay-cast": "error",
     "effect/no-option-boolean-normalization": "error",
-    "effect/no-string-sentinel-const": "error",
-    "effect/no-string-sentinel-return": "error",
     "effect/no-unknown-boolean-coercion-helper": "error"
   }
 }

@@ -24,6 +24,14 @@ describe("published plugin configuration", () => {
     }
   });
 
+  it("It allows canonical Effect syntax rejected by removed blanket rules", () => {
+    expect(plugin.rules).not.toHaveProperty("no-manual-effect-channels");
+    expect(plugin.rules).not.toHaveProperty("no-nested-effect-gen");
+    expect(plugin.rules).not.toHaveProperty("no-string-sentinel-const");
+    expect(plugin.rules).not.toHaveProperty("no-string-sentinel-return");
+    expect(plugin.rules).not.toHaveProperty("no-ternary");
+  });
+
   it("It allows rules to be disabled with Oxlint severity", () => {
     const result = lintSourceWithRule(
       "no-switch-statement",

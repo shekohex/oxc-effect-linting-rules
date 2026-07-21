@@ -13,6 +13,7 @@ import {
   isMemberStartingWith,
   isPipeCall,
   literalValue,
+  memberName,
   propertyName,
   returnedExpression,
   unwrapExpression,
@@ -62,11 +63,23 @@ const messages = {
     fix: "rewrite as one pipe-based flow or one top-level Effect.gen with direct yields.",
     preserve: "field dependencies, evaluation order, typed errors, requirements, and final output.",
   }),
-  noEffectFnGenerator: remediationMessage({
-    detected: "Effect.fn wrapping a generator function.",
-    problem: "the extra function wrapper obscures the operation boundary and nested sequencing.",
-    fix: "keep the function boundary explicit and return one flat Effect pipeline or one Effect.gen body.",
-    preserve: "function parameters, tracing behavior, laziness, typed errors, requirements, and return type.",
+  noEffectFnCallbackAlias: remediationMessage({
+    detected: "Effect.fn receiving its operation callback through an identifier.",
+    problem: "the observable operation boundary and its implementation are split across separate declarations.",
+    fix: "inline the generator or function callback inside Effect.fn; extract complete domain operations instead of callback aliases.",
+    preserve: "span name, function parameters, transforms, laziness, typed errors, requirements, and return type.",
+  }),
+  noEffectFnUntraced: remediationMessage({
+    detected: "Effect.fnUntraced used in application code.",
+    problem: "the operation loses the stack-frame and tracing behavior provided by Effect.fn.",
+    fix: "use Effect.fn with a meaningful span name, or configure an explicit exception for a measured low-level hot path.",
+    preserve: "function parameters, laziness, typed errors, requirements, return type, and any whole-function transforms.",
+  }),
+  noEffectGenCallbackAlias: remediationMessage({
+    detected: "Effect.gen receiving its generator callback through an identifier.",
+    problem: "the workflow body is separated from the sequencing boundary, forcing readers to jump between one-use declarations.",
+    fix: "inline the generator callback inside Effect.gen; extract a complete reusable operation with Effect.fn when it has an independent contract.",
+    preserve: "yield order, local scope, laziness, typed errors, requirements, transaction boundaries, and return type.",
   }),
   noEffectLadder: remediationMessage({
     detected: "three or more Effect calls nested through their first arguments.",
@@ -98,11 +111,11 @@ const messages = {
     fix: "replace the console call with the matching Effect.log* operation, or remove it if it is temporary debugging.",
     preserve: "log level, message fields, execution order, and lazy execution.",
   }),
-  noEffectWrapperAlias: remediationMessage({
-    detected: "a local declaration that only aliases an Effect pipeline or returns one unchanged.",
-    problem: "the extra name forces readers to jump between declarations without adding a domain boundary.",
-    fix: "inline the pipeline at its single use, or keep a named function only when its name, parameters, and contract define a real reusable operation.",
-    preserve: "laziness, call count, parameter scope, typed errors, requirements, and reuse semantics.",
+  preferEffectFn: remediationMessage({
+    detected: "a reusable function whose body only returns Effect.gen.",
+    problem: "the raw wrapper loses the observable function boundary and duplicates generator construction boilerplate.",
+    fix: "define the operation with Effect.fn and place the generator body directly inside its callback.",
+    preserve: "function name, parameters, laziness, typed errors, requirements, tracing intent, and return type.",
   }),
   noFlatmapLadder: remediationMessage({
     detected: "nested Effect.flatMap calls or Effect.flatten over a nested Effect.map.",
@@ -110,11 +123,119 @@ const messages = {
     fix: "rewrite as one pipe with sequential Effect.flatMap steps and name only domain values needed by later steps.",
     preserve: "dependency order, short-circuit failures, typed errors, requirements, and final success value.",
   }),
-  noIfStatement: remediationMessage({
-    detected: "an if statement in an Effect ecosystem file.",
-    problem: "the branch sits outside the compositional data and Effect flow required by this project.",
-    fix: "select a value with Match.value, Option.match, Result.match, or Effect.if, then continue with one pipeline.",
-    preserve: "condition evaluation, branch laziness, side effects, narrowing, and both branch result types.",
+  noNativeCurrentTime: remediationMessage({
+    detected: "Date.now() or a zero-argument new Date() in an Effect ecosystem file.",
+    problem: "reading wall-clock time directly bypasses Effect Clock and makes time-dependent behavior nondeterministic in tests.",
+    fix: "read current time through Clock or DateTime inside the owning Effect; keep native Date only for explicit conversion of supplied values.",
+    preserve: "instant precision, time-zone semantics, formatting, execution timing, and public date representation.",
+  }),
+  noEffectSleepInTest: remediationMessage({
+    detected: "Effect.sleep using live time in a test file.",
+    problem: "the test waits on wall-clock time and becomes slow or timing-dependent.",
+    fix: "use TestClock with Effect sleep, or synchronize fibers with Deferred, Queue, Latch, or an explicit test hook.",
+    preserve: "the delay boundary, ordering, timeout behavior, interruption, and assertion timing.",
+  }),
+  noEffectRunInTest: remediationMessage({
+    detected: "an Effect.runPromise, runSync, or runCallback runtime call in a test file.",
+    problem: "manual execution bypasses @effect/vitest test services, scoping, and structured failure reporting.",
+    fix: "import test APIs from @effect/vitest and return the Effect from it.effect or it.live; use layer or it.layer for dependencies.",
+    preserve: "test timeout, scope lifetime, provided services, exit behavior, assertions, and failure reporting.",
+  }),
+  noThrowInEffectGenerator: remediationMessage({
+    detected: "a throw statement inside an Effect generator.",
+    problem: "the thrown value becomes an unchecked defect instead of a typed failure in the Effect error channel.",
+    fix: "return yield* a Schema.TaggedErrorClass failure; wrap throwing foreign APIs with Effect.try or Effect.tryPromise.",
+    preserve: "failure payload, stack or cause evidence, branch termination, cleanup, and public error contract.",
+  }),
+  preferEffectAsync: remediationMessage({
+    detected: "a native Promise constructor in an Effect ecosystem file.",
+    problem: "manual Promise settlement hides cancellation and moves failure outside the typed Effect model.",
+    fix: "use Effect.async for callback registration with a finalizer, Effect.tryPromise for Promise APIs, or a runtime bridge only at an external boundary.",
+    preserve: "settlement timing, cancellation cleanup, rejection mapping, callback multiplicity, and result type.",
+  }),
+  preferAssertInEffectTest: remediationMessage({
+    detected: "expect used inside an it.effect test.",
+    problem: "Effect tests use @effect/vitest assert helpers for consistent synchronous assertions inside Effect workflows.",
+    fix: "import assert from @effect/vitest and replace the assertion with the matching assert method.",
+    preserve: "matcher semantics, equality depth, thrown-error checks, assertion count, and diagnostic value.",
+  }),
+  preferEffectCache: remediationMessage({
+    detected: "a cache-named variable initialized with a native Map in an Effect ecosystem file.",
+    problem: "manual caches usually duplicate keyed lookup deduplication, capacity, TTL, refresh, and eviction behavior already provided by Effect Cache.",
+    fix: "use Cache.make or Cache.makeWith; use Effect.cached for one value and ScopedCache for resources requiring cleanup.",
+    preserve: "cache key equality, capacity, success and failure TTLs, concurrent lookup deduplication, invalidation, and resource lifetime.",
+  }),
+  preferEffectChildProcess: remediationMessage({
+    detected: "a direct node:child_process import in an Effect ecosystem file.",
+    problem: "native process APIs bypass ChildProcessSpawner, typed platform errors, streams, scopes, and replaceable runtime services.",
+    fix: "use effect/unstable/process ChildProcess and ChildProcessSpawner, then provide NodeChildProcessSpawner or NodeServices at the runtime boundary.",
+    preserve: "command arguments, environment, cwd, stdio, exit codes, signals, streaming, and process cleanup.",
+  }),
+  preferEffectConfig: remediationMessage({
+    detected: "direct process.env access in an Effect ecosystem file.",
+    problem: "ambient environment reads bypass typed Config decoding and deterministic ConfigProvider replacement in tests.",
+    fix: "define the value with Effect Config, use Config.redacted for secrets, and provide test values through ConfigProvider or an application config service.",
+    preserve: "variable name, optionality, default behavior, redaction, parse failures, and startup timing.",
+  }),
+  preferEffectFileSystem: remediationMessage({
+    detected: "a direct Node filesystem import in an Effect ecosystem file.",
+    problem: "native filesystem calls bypass the Effect FileSystem service, typed platform errors, and replaceable test implementations.",
+    fix: "depend on Effect FileSystem and provide NodeFileSystem or NodeServices at the runtime boundary.",
+    preserve: "path handling, encoding, permissions, atomicity, streaming, error mapping, and resource cleanup.",
+  }),
+  preferEffectHttpClient: remediationMessage({
+    detected: "a raw fetch call in an Effect ecosystem file.",
+    problem: "raw fetch bypasses the Effect HttpClient service, typed transport errors, layers, tracing, retries, and schema response helpers.",
+    fix: "use effect/unstable/http HttpClient with HttpClientRequest and HttpClientResponse; configure an exception only for a deliberate platform adapter.",
+    preserve: "URL, method, headers, body, AbortSignal behavior, status classification, decoding, retries, and response type.",
+  }),
+  preferEffectScheduling: remediationMessage({
+    detected: "setTimeout or setInterval in an Effect ecosystem file.",
+    problem: "native timers bypass Effect Clock, interruption, scopes, Schedule, and deterministic TestClock control.",
+    fix: "use Effect.sleep, Effect.delay, Effect.timeout, or Effect.repeat with Schedule; keep native timers only inside an explicit callback adapter with cleanup.",
+    preserve: "delay duration, repetition cadence, cancellation, cleanup, callback order, and timeout semantics.",
+  }),
+  preferEffectDateTime: remediationMessage({
+    detected: "Date.parse used in an Effect ecosystem file.",
+    problem: "native parsing returns an unchecked number or NaN and bypasses DateTime or Schema validation.",
+    fix: "use DateTime.make for optional parsing, DateTime.makeUnsafe only for trusted constants, or Schema.DateTimeUtcFromString at data boundaries.",
+    preserve: "accepted input formats, UTC and zone semantics, invalid-input behavior, precision, and comparison logic.",
+  }),
+  preferEffectLogging: remediationMessage({
+    detected: "a console call inside an Effect generator.",
+    problem: "console output bypasses Effect log levels, annotations, spans, fiber context, and configured loggers.",
+    fix: "use Effect.log, Effect.logDebug, Effect.logInfo, Effect.logWarning, or Effect.logError with structured fields.",
+    preserve: "log level, message, structured fields, execution order, laziness, and diagnostic context.",
+  }),
+  preferEffectRandom: remediationMessage({
+    detected: "Math.random used in an Effect ecosystem file.",
+    problem: "ambient randomness cannot be replaced or made deterministic through Effect test services.",
+    fix: "use the Effect Random service; keep cryptographic token generation in a focused crypto adapter rather than replacing it with Random.",
+    preserve: "distribution, bounds, seeding expectations, security requirements, call count, and generated value type.",
+  }),
+  preferEffectTestLayer: remediationMessage({
+    detected: "Effect.provide used directly inside a test file.",
+    problem: "local provisioning repeats layer setup and hides scope ownership instead of using @effect/vitest layer helpers.",
+    fix: "use layer for shared setup or it.layer for isolated or nested setup; keep provideService only for focused one-off overrides.",
+    preserve: "layer sharing, memoization, acquisition count, finalizers, test isolation, and provided services.",
+  }),
+  preferEffectVitest: remediationMessage({
+    detected: "Vitest APIs imported from vitest in an Effect test file.",
+    problem: "plain Vitest lacks it.effect, it.live, Effect-aware property tests, layer helpers, TestClock, and scoped runtime handling.",
+    fix: "import describe, it, assert, layer, and other test APIs from @effect/vitest; keep regular it for pure synchronous tests.",
+    preserve: "test names, hooks, mocks, parameterization, timeouts, assertion behavior, and pure-test execution.",
+  }),
+  preferSchemaJson: remediationMessage({
+    detected: "JSON.parse or JSON.stringify in an Effect ecosystem file.",
+    problem: "raw JSON conversion bypasses Schema validation, transformations, typed parse errors, and model encoding rules.",
+    fix: "use Schema.fromJsonString with decodeUnknownEffect or encodeUnknownEffect at the owning boundary; use NDJSON or stream codecs for streamed records.",
+    preserve: "wire format, parse failures, optional fields, branded values, dates, whitespace, and compatibility with existing consumers.",
+  }),
+  noSchemaSyncInEffectGenerator: remediationMessage({
+    detected: "a synchronous throwing Schema decoder or encoder inside an Effect generator.",
+    problem: "sync Schema APIs can throw defects instead of keeping validation failure in the typed Effect error channel.",
+    fix: "use Schema.decodeUnknownEffect or Schema.encodeUnknownEffect inside Effect code; reserve sync APIs for pure tests, scripts, or startup boundaries.",
+    preserve: "schema options, encoded and decoded types, validation issues, transformations, and failure mapping.",
   }),
   noIifeWrapper: remediationMessage({
     detected: "an inline function invoked immediately.",
@@ -140,6 +261,12 @@ const messages = {
     fix: "make Option.match select a plain value or operation, then run one Effect pipeline after the match; keep a linear branch only when no shared continuation exists.",
     preserve: "none versus some semantics, branch laziness, typed errors, requirements, and output type.",
   }),
+  requireReturnYieldEffectTerminal: remediationMessage({
+    detected: "yield* Effect.fail or yield* Effect.interrupt used as a standalone generator statement.",
+    problem: "the terminal Effect is not expressed as the generator's control-flow exit, leaving unreachable continuation code and weaker narrowing.",
+    fix: "write return yield* Effect.fail(...) or return yield* Effect.interrupt at the terminal branch.",
+    preserve: "typed failure, interruption semantics, branch condition, generator return type, and unreachable-code behavior.",
+  }),
   noMatchVoidBranch: remediationMessage({
     detected: "a Match branch that returns Effect.void.",
     problem: "the no-op Effect encodes a guard branch without making the selected value explicit.",
@@ -151,12 +278,6 @@ const messages = {
     problem: "the call tree hides sequencing and intermediate values.",
     fix: "rewrite it as one pipe with explicit Effect combinator steps.",
     preserve: "evaluation order, typed errors, requirements, concurrency, and final success value.",
-  }),
-  noNestedEffectGen: remediationMessage({
-    detected: "Effect.gen nested inside another Effect.gen callback.",
-    problem: "the nested generator creates a second sequencing scope inside one operation.",
-    fix: "move the nested yields into the owning generator, or extract a complete named domain operation when it is independently reusable.",
-    preserve: "yield order, local variable scope, typed errors, requirements, finalizers, and return value.",
   }),
   noOptionAs: remediationMessage({
     detected: "Option.as replacing a present Option value.",
@@ -187,12 +308,6 @@ const messages = {
     problem: "case-based control flow sits outside the compositional data and Effect flow required by this project.",
     fix: "use Match.value, Option.match, Result.match, or Effect.if, then continue with one explicit pipeline.",
     preserve: "case order, default behavior, fallthrough semantics, narrowing, branch laziness, and output type.",
-  }),
-  noTernary: remediationMessage({
-    detected: "a conditional expression in an Effect ecosystem file.",
-    problem: "the inline branch hides selection inside a larger expression.",
-    fix: "select the value with Match.value, Option.match, Result.match, or Effect.if before continuing the pipeline.",
-    preserve: "condition evaluation, branch laziness, narrowing, side effects, and output type.",
   }),
   noWrapGraphqlCatch: remediationMessage({
     detected: "Effect.catch after wrapGraphqlCall or an applyResponse sequencing step.",
@@ -244,27 +359,60 @@ function hasConcurrencyOne(node) {
   );
 }
 
-function isEffectPipelineExpression(node) {
+function effectFnCallback(node) {
   const expression = unwrapExpression(node);
-  if (isEffectCall(expression)) return true;
-  return isPipeCall(expression) && contains(expression, isEffectCall);
+  if (expression?.type !== "CallExpression") return undefined;
+  if (isEffectCall(expression, "fn")) {
+    return unwrapExpression(expression.arguments[0]);
+  }
+  if (isEffectCall(unwrapExpression(expression.callee), "fn")) {
+    return unwrapExpression(expression.arguments[0]);
+  }
+  return undefined;
 }
 
-function isEffectReturningArrow(node) {
+function effectGenCallback(node) {
+  const expression = unwrapExpression(node);
+  if (!isEffectCall(expression, "gen")) return undefined;
+  return unwrapExpression(expression.arguments[0]);
+}
+
+function isGlobalFunctionCall(node, functionName) {
   return (
-    node?.type === "ArrowFunctionExpression" &&
-    node.body.type !== "BlockStatement" &&
-    isEffectPipelineExpression(node.body)
+    node?.type === "CallExpression" &&
+    (isIdentifier(node.callee, functionName) ||
+      isMember(node.callee, "globalThis", functionName))
   );
 }
 
-function isEffectReturningDeclaration(node) {
-  return (
-    node?.type === "FunctionDeclaration" &&
-    node.body.body.length === 1 &&
-    node.body.body[0].type === "ReturnStatement" &&
-    isEffectPipelineExpression(node.body.body[0].argument)
-  );
+function isTestFile(filename) {
+  return /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(filename ?? "");
+}
+
+function isItMethodCall(node, methodName) {
+  return node?.type === "CallExpression" && isMember(node.callee, "it", methodName);
+}
+
+function isSchemaSyncCall(node) {
+  return [
+    "decodeSync",
+    "decodeUnknownSync",
+    "encodeSync",
+    "encodeUnknownSync",
+  ].some((methodName) => isCall(node, "Schema", methodName));
+}
+
+function directlyReturnedExpression(node) {
+  if (!isFunction(node)) return undefined;
+  if (node.body.type !== "BlockStatement") return unwrapExpression(node.body);
+  if (node.body.body.length !== 1 || node.body.body[0].type !== "ReturnStatement") {
+    return undefined;
+  }
+  return unwrapExpression(node.body.body[0].argument);
+}
+
+function onlyReturnsEffectGen(node) {
+  return !node?.generator && isEffectCall(directlyReturnedExpression(node), "gen");
 }
 
 function isSequenceCall(node) {
@@ -380,17 +528,33 @@ export const coreRules = {
     },
   })),
 
-  "no-effect-fn-generator": defineEffectFileRule(
-    messages.noEffectFnGenerator,
+  "no-effect-fn-callback-alias": defineEffectFileRule(
+    messages.noEffectFnCallbackAlias,
     (_context, report, enabled) => ({
       CallExpression(node) {
-        if (
-          enabled() &&
-          isEffectCall(node, "fn") &&
-          node.arguments.some((argument) => isFunction(argument) && argument.generator)
-        ) {
-          report(node);
-        }
+        if (!enabled()) return;
+        const callback = effectFnCallback(node);
+        if (callback?.type === "Identifier") report(callback);
+      },
+    }),
+  ),
+
+  "no-effect-fn-untraced": defineEffectFileRule(
+    messages.noEffectFnUntraced,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isEffectCall(node, "fnUntraced")) report(node);
+      },
+    }),
+  ),
+
+  "no-effect-gen-callback-alias": defineEffectFileRule(
+    messages.noEffectGenCallbackAlias,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (!enabled()) return;
+        const callback = effectGenCallback(node);
+        if (callback?.type === "Identifier") report(callback);
       },
     }),
   ),
@@ -456,23 +620,12 @@ export const coreRules = {
     }),
   ),
 
-  "no-effect-wrapper-alias": defineRule(messages.noEffectWrapperAlias, (_context, report) => ({
-    VariableDeclaration(node) {
-      if (!isConstDeclaration(node)) return;
-      if (
-        node.declarations.some((declarator) => {
-          const initializer = unwrapExpression(declarator.init);
-          return (
-            (isPipeCall(initializer) && contains(initializer, isEffectCall)) ||
-            isEffectReturningArrow(initializer)
-          );
-        })
-      ) {
-        report(node);
-      }
+  "prefer-effect-fn": defineEffectFileRule(messages.preferEffectFn, (_context, report, enabled) => ({
+    VariableDeclarator(node) {
+      if (enabled() && onlyReturnsEffectGen(unwrapExpression(node.init))) report(node);
     },
     FunctionDeclaration(node) {
-      if (isEffectReturningDeclaration(node)) report(node);
+      if (enabled() && onlyReturnsEffectGen(node)) report(node);
     },
   })),
 
@@ -502,12 +655,6 @@ export const coreRules = {
       ) {
         report(node);
       }
-    },
-  })),
-
-  "no-if-statement": defineEffectFileRule(messages.noIfStatement, (_context, report, enabled) => ({
-    IfStatement(node) {
-      if (enabled()) report(node.test);
     },
   })),
 
@@ -567,23 +714,63 @@ export const coreRules = {
     }),
   ),
 
+  "no-native-current-time": defineEffectFileRule(
+    messages.noNativeCurrentTime,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isMember(node.callee, "Date", "now")) report(node);
+      },
+      NewExpression(node) {
+        if (enabled() && isIdentifier(node.callee, "Date") && node.arguments.length === 0) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "no-effect-sleep-in-test": defineEffectFileRule(
+    messages.noEffectSleepInTest,
+    (context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          isTestFile(context.filename) &&
+          !hasAncestor(node, (ancestor) => isItMethodCall(ancestor, "live")) &&
+          isEffectCall(node, "sleep")
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "no-effect-run-in-test": defineEffectFileRule(
+    messages.noEffectRunInTest,
+    (context, report, enabled) => ({
+      CallExpression(node) {
+        if (!enabled() || !isTestFile(context.filename) || !isEffectCall(node)) return;
+        const method = memberName(node.callee);
+        if (method && /^run(?:Promise|Sync|Callback)/.test(method)) report(node);
+      },
+    }),
+  ),
+
+  "no-throw-in-effect-generator": defineEffectFileRule(
+    messages.noThrowInEffectGenerator,
+    (_context, report, enabled) => ({
+      ThrowStatement(node) {
+        if (enabled() && hasAncestor(node, (ancestor) => isFunction(ancestor) && ancestor.generator)) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
   "no-nested-effect-call": defineEffectFileRule(
     messages.noNestedEffectCall,
     (_context, report, enabled) => ({
       CallExpression(node) {
         if (enabled() && hasEffectFirstArgumentDepth(node, 3)) report(node);
-      },
-    }),
-  ),
-
-  "no-nested-effect-gen": defineEffectFileRule(
-    messages.noNestedEffectGen,
-    (_context, report, enabled) => ({
-      CallExpression(node) {
-        if (!enabled() || !isEffectCall(node, "gen")) return;
-        const callback = node.arguments.find(isFunction);
-        const nested = callback && findDescendant(callback.body, (candidate) => isEffectCall(candidate, "gen"));
-        if (nested) report(nested);
       },
     }),
   ),
@@ -602,6 +789,203 @@ export const coreRules = {
       }
     },
   })),
+
+  "prefer-effect-async": defineEffectFileRule(
+    messages.preferEffectAsync,
+    (_context, report, enabled) => ({
+      NewExpression(node) {
+        if (enabled() && isIdentifier(node.callee, "Promise")) report(node);
+      },
+    }),
+  ),
+
+  "prefer-assert-in-effect-test": defineEffectFileRule(
+    messages.preferAssertInEffectTest,
+    (context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          isTestFile(context.filename) &&
+          isIdentifier(node.callee, "expect") &&
+          hasAncestor(node, (ancestor) => isItMethodCall(ancestor, "effect"))
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-cache": defineEffectFileRule(
+    messages.preferEffectCache,
+    (_context, report, enabled) => ({
+      VariableDeclarator(node) {
+        if (
+          enabled() &&
+          node.id?.type === "Identifier" &&
+          /cache/i.test(node.id.name) &&
+          unwrapExpression(node.init)?.type === "NewExpression" &&
+          isIdentifier(unwrapExpression(node.init).callee, "Map")
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-child-process": defineEffectFileRule(
+    messages.preferEffectChildProcess,
+    (_context, report, enabled) => ({
+      ImportDeclaration(node) {
+        if (enabled() && ["child_process", "node:child_process"].includes(literalValue(node.source))) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-config": defineEffectFileRule(
+    messages.preferEffectConfig,
+    (_context, report, enabled) => ({
+      MemberExpression(node) {
+        if (enabled() && isMember(node, "process", "env")) report(node);
+      },
+    }),
+  ),
+
+  "prefer-effect-file-system": defineEffectFileRule(
+    messages.preferEffectFileSystem,
+    (_context, report, enabled) => ({
+      ImportDeclaration(node) {
+        if (!enabled()) return;
+        const source = literalValue(node.source);
+        if (["fs", "fs/promises", "node:fs", "node:fs/promises"].includes(source)) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-http-client": defineEffectFileRule(
+    messages.preferEffectHttpClient,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isGlobalFunctionCall(node, "fetch")) report(node);
+      },
+    }),
+  ),
+
+  "prefer-effect-scheduling": defineEffectFileRule(
+    messages.preferEffectScheduling,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          (isGlobalFunctionCall(node, "setTimeout") ||
+            isGlobalFunctionCall(node, "setInterval"))
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-date-time": defineEffectFileRule(
+    messages.preferEffectDateTime,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isMember(node.callee, "Date", "parse")) report(node);
+      },
+    }),
+  ),
+
+  "prefer-effect-logging": defineEffectFileRule(
+    messages.preferEffectLogging,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          isConsoleCall(node) &&
+          hasAncestor(node, (ancestor) => isFunction(ancestor) && ancestor.generator)
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-random": defineEffectFileRule(
+    messages.preferEffectRandom,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isMember(node.callee, "Math", "random")) report(node);
+      },
+    }),
+  ),
+
+  "prefer-effect-test-layer": defineEffectFileRule(
+    messages.preferEffectTestLayer,
+    (context, report, enabled) => ({
+      CallExpression(node) {
+        if (enabled() && isTestFile(context.filename) && isEffectCall(node, "provide")) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-effect-vitest": defineEffectFileRule(
+    messages.preferEffectVitest,
+    (context, report, enabled) => ({
+      ImportDeclaration(node) {
+        if (enabled() && isTestFile(context.filename) && literalValue(node.source) === "vitest") {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "prefer-schema-json": defineEffectFileRule(
+    messages.preferSchemaJson,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          (isCall(node, "JSON", "parse") || isCall(node, "JSON", "stringify"))
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "no-schema-sync-in-effect-generator": defineEffectFileRule(
+    messages.noSchemaSyncInEffectGenerator,
+    (context, report, enabled) => ({
+      CallExpression(node) {
+        if (
+          enabled() &&
+          !isTestFile(context.filename) &&
+          isSchemaSyncCall(node) &&
+          hasAncestor(node, (ancestor) => isFunction(ancestor) && ancestor.generator)
+        ) {
+          report(node);
+        }
+      },
+    }),
+  ),
+
+  "require-return-yield-effect-terminal": defineEffectFileRule(
+    messages.requireReturnYieldEffectTerminal,
+    (_context, report, enabled) => ({
+      ExpressionStatement(node) {
+        if (!enabled() || node.expression?.type !== "YieldExpression") return;
+        const terminal = unwrapExpression(node.expression.argument);
+        if (isEffectCall(terminal, "fail") || isMember(terminal, "Effect", "interrupt")) {
+          report(node);
+        }
+      },
+    }),
+  ),
 
   "no-return-null": defineEffectFileRule(messages.noReturnNull, (_context, report, enabled) => ({
     ReturnStatement(node) {
@@ -631,12 +1015,6 @@ export const coreRules = {
       },
     }),
   ),
-
-  "no-ternary": defineEffectFileRule(messages.noTernary, (_context, report, enabled) => ({
-    ConditionalExpression(node) {
-      if (enabled()) report(node.test);
-    },
-  })),
 
   "no-wrapgraphql-catch": defineEffectFileRule(
     messages.noWrapGraphqlCatch,

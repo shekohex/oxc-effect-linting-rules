@@ -38,14 +38,6 @@ describe("no-naked-object-state-update", () => {
     );
   });
 
-  it("It catches JSON.parse/JSON.stringify in transition execution flow", () => {
-    const result = lintWithRule(ruleName, path.join(fixtures, "invalid-json-transition.ts"));
-    expect(result.status).toBe(1);
-    expect(result.output).toContain(
-      "Detected: JSON.parse or JSON.stringify in state-oriented code.",
-    );
-  });
-
   it("It allows declarative EffectRecord + schema reconstruction", () => {
     const result = lintWithRule(ruleName, path.join(fixtures, "valid-effect-record-set.ts"));
     expect(result.status).toBe(0);

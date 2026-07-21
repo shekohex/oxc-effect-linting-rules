@@ -16,6 +16,66 @@ Do it like this: build context once, select one decision model, and keep that de
 
 Fix one method at a time and keep adjacent behavior unchanged.
 
+### Canonical Effect functions
+
+Define reusable effectful operations with an inline `Effect.fn` callback:
+
+```ts
+const loadUser = Effect.fn("UserService.loadUser")(function* (userId: UserId) {
+  const repository = yield* UserRepository
+  return yield* repository.get(userId)
+})
+```
+
+Do not extract the callback into a one-use `loadUserGen` or `loadUserOperation` declaration. The `Effect.fn` call is the observable operation boundary and should contain its implementation.
+
+Use `Effect.gen` for inline workflows and scoped transaction bodies. Do not wrap `Effect.gen` in a reusable arrow or function declaration; use `Effect.fn` instead.
+
+Generator guard clauses may use ordinary `if` statements. Terminal failures and interruption must use `return yield*` so control-flow exit and narrowing remain explicit.
+
+Use `Effect.fnUntraced` only for measured low-level hot paths configured as explicit exceptions.
+
+Read current time through Effect `Clock` or `DateTime`. Keep native `Date` construction for conversion from explicit supplied values, not ambient wall-clock access.
+
+### Effect capabilities
+
+Prefer replaceable Effect services over ambient JavaScript and Node capabilities:
+
+- use `Config` and `ConfigProvider` instead of reading `process.env` in application code
+- use Effect `FileSystem` with a platform layer instead of importing `node:fs`
+- use `effect/unstable/http` `HttpClient`, `HttpClientRequest`, and `HttpClientResponse` instead of raw `fetch`
+- use `Effect.sleep`, `Effect.delay`, `Effect.timeout`, and `Schedule` instead of native timers
+- use `Effect.async` for callback registration and `Effect.tryPromise` for Promise APIs instead of constructing Promises manually
+- use `TestClock`, `Deferred`, `Queue`, or `Latch` instead of live sleeps in tests
+- use Effect `Random` instead of `Math.random` when randomness should be replaceable in tests
+- use Effect logging instead of `console` inside Effect generators
+- use `ChildProcess` and `ChildProcessSpawner` instead of `node:child_process`
+- use `Cache`, `ScopedCache`, or `Effect.cached*` instead of cache-named native maps with manual TTL and eviction
+- use `DateTime.make` or Schema date-time codecs instead of unchecked `Date.parse`
+- use Schema JSON codecs instead of raw `JSON.parse` or `JSON.stringify` in Effect application code
+
+Raw platform APIs remain valid inside deliberate adapters where Effect does not own the host boundary. Keep such adapters focused, preserve cancellation and cleanup, and configure a narrow `ignoredPathFragments` exception instead of weakening a rule repository-wide.
+
+### Effect tests
+
+Import Vitest APIs from `@effect/vitest` in Effect test files. Use regular `it` for pure synchronous tests and `it.effect` for tests returning Effects.
+
+Do not call `Effect.runPromise`, `Effect.runSync`, or `Effect.runCallback` inside tests. Return the Effect from `it.effect` or `it.live` so the test runtime owns scope and failure reporting.
+
+Use top-level `layer(...)` for shared setup and `it.layer(...)` for isolated or nested setup. Avoid repeated local `Effect.provide(...)`; focused `provideService` overrides remain valid for one-off test values.
+
+Use `assert` from `@effect/vitest` inside Effect tests. Keep `expect` only in pure Vitest tests when its matcher API is specifically required.
+
+Real `Effect.sleep` is allowed only in deliberate `it.live` tests. Normal `it.effect` tests should use `TestClock` or explicit synchronization.
+
+### Schema boundaries
+
+Use `Schema.decodeUnknownEffect` and `Schema.encodeUnknownEffect` inside Effect generators. Synchronous Schema APIs are valid in pure tests, scripts, and intentional startup boundaries, but should not turn application validation failures into defects.
+
+Explicit `Effect.Effect<Success, Error, Requirements>` and `Layer.Layer<Output, Error, Input>` types are valid and encouraged on public service and layer contracts. Prefer inference for locals, not by banning channel types globally.
+
+Ordinary ternaries, string values, and nested scoped `Effect.gen` workflows are not lint violations by themselves. Rules must target the actual unsafe boundary or indirection rather than force ceremonial rewrites.
+
 ### Non-compliant patterns
 
 Do not add helper wrappers whose only purpose is to return Effects.

@@ -52,12 +52,6 @@ const messages = {
     fix: "construct the complete model explicitly, use Struct.evolve for named fields, or use effect/Record operations for a true record.",
     preserve: "left-to-right overwrite precedence, enumerable properties, getters, symbols, prototype behavior, and output type.",
   }),
-  noJsonShortcut: remediationMessage({
-    detected: "JSON.parse or JSON.stringify in state-oriented code.",
-    problem: "raw JSON conversion bypasses schema validation, typed parse errors, and model encoding rules.",
-    fix: "decode and encode at the boundary with the owning Schema APIs.",
-    preserve: "wire format, parse failures, optional fields, dates or branded values, and compatibility with existing consumers.",
-  }),
   noReactState: remediationMessage({
     detected: "a React state, context, lifecycle, callback, or external-store hook governed by this rule.",
     problem: "this project requires shared reactive state and effects to be owned by the Effect Atom runtime.",
@@ -177,9 +171,6 @@ export const webRules = {
         ) {
           report(node, messages.noObjectAssignMerge);
           return;
-        }
-        if (isCall(node, "JSON", "stringify") || isCall(node, "JSON", "parse")) {
-          report(node, messages.noJsonShortcut);
         }
       },
     }),

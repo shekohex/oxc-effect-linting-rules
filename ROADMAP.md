@@ -25,7 +25,7 @@ Split into multiple packages only if preset-specific dependencies, release caden
 Build a zero-install CLI on top of the same rule engine:
 - `npx @shekohex/oxc-effect check file.ts`
 - `npx @shekohex/oxc-effect rewrite file.ts`
-- `npx @shekohex/oxc-effect rewrite src --rule no-nested-effect-gen`
+- `npx @shekohex/oxc-effect rewrite src --rule no-effect-gen-callback-alias`
 - `npx @shekohex/oxc-effect rewrite src --preset core`
 
 The CLI bundles Oxlint runtime and rules so users can try diagnostics without wiring plugin config first.

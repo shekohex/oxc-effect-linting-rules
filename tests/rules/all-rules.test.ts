@@ -50,9 +50,19 @@ const invalidCases = [
     "Detected: Effect.Do starting builder-style accumulation.",
   ],
   [
-    "no-effect-fn-generator",
-    `${effectImport}const value = Effect.fn(function* () { return 1; });`,
-    "Detected: Effect.fn wrapping a generator function.",
+    "no-effect-fn-callback-alias",
+    `${effectImport}function* operation() { return 1; } const value = Effect.fn("value")(operation);`,
+    "Detected: Effect.fn receiving its operation callback through an identifier.",
+  ],
+  [
+    "no-effect-fn-untraced",
+    `${effectImport}const value = Effect.fnUntraced(function* () { return 1; });`,
+    "Detected: Effect.fnUntraced used in application code.",
+  ],
+  [
+    "no-effect-gen-callback-alias",
+    `${effectImport}function* workflow() { return 1; } const value = Effect.gen(workflow);`,
+    "Detected: Effect.gen receiving its generator callback through an identifier.",
   ],
   [
     "no-effect-ladder",
@@ -75,11 +85,6 @@ const invalidCases = [
     "Detected: Effect.as applied to an Effect containing an obvious state, invalidation, logging, or console side effect.",
   ],
   [
-    "no-effect-step-const-staging",
-    "const staged = Effect.succeed(value);",
-    "Detected: a const initialized with an intermediate Effect call or Effect pipeline.",
-  ],
-  [
     "no-effect-succeed-variable",
     `${effectImport}const result = Effect.succeed(value);`,
     "Detected: Effect.succeed wrapping an existing identifier or member value.",
@@ -95,9 +100,9 @@ const invalidCases = [
     "Detected: a type alias containing Effect.Effect<Success, Error, Requirements>.",
   ],
   [
-    "no-effect-wrapper-alias",
-    "const load = () => Effect.succeed(value);",
-    "Detected: a local declaration that only aliases an Effect pipeline or returns one unchanged.",
+    "prefer-effect-fn",
+    `${effectImport}const load = () => Effect.gen(function* () { return 1; });`,
+    "Detected: a reusable function whose body only returns Effect.gen.",
   ],
   [
     "no-family-collection-read",
@@ -120,11 +125,6 @@ const invalidCases = [
     "Detected: an Option.fromNullishOr/fromNullOr/fromUndefinedOr argument with a matching ?? null or ?? undefined fallback.",
   ],
   [
-    "no-if-statement",
-    `${effectImport}if (condition) run();`,
-    "Detected: an if statement in an Effect ecosystem file.",
-  ],
-  [
     "no-iife-wrapper",
     `${effectImport}const value = ((input) => input)(source);`,
     "Detected: an inline function invoked immediately.",
@@ -138,11 +138,6 @@ const invalidCases = [
     "no-manual-data-guard",
     "type Data = { id: string }; const isData = (value: unknown): value is Data => typeof value === 'object';",
     "Detected: a user-defined type predicate that narrows an unknown or any parameter without decoding it.",
-  ],
-  [
-    "no-manual-effect-channels",
-    "type Result = Effect.Effect<string, Error, Environment>;",
-    "Detected: explicit generic channel arguments on Effect.Effect or Layer.Layer.",
   ],
   [
     "no-match-effect-branch",
@@ -161,8 +156,8 @@ const invalidCases = [
   ],
   [
     "no-naked-object-state-update",
-    "const value = JSON.parse(serialized);",
-    "Detected: JSON.parse or JSON.stringify in state-oriented code.",
+    "Ref.update(state, (current) => ({ ...current, ready: true }));",
+    "Detected: Ref.update or Ref.modify returning an object built with spread syntax.",
   ],
   [
     "no-nested-effect-call",
@@ -170,9 +165,26 @@ const invalidCases = [
     "Detected: an Effect call nested at least three calls deep through first arguments.",
   ],
   [
-    "no-nested-effect-gen",
-    `${effectImport}const value = Effect.gen(function* () { return yield* Effect.gen(function* () { return 1; }); });`,
-    "Detected: Effect.gen nested inside another Effect.gen callback.",
+    "no-native-current-time",
+    `${effectImport}const now = Date.now();`,
+    "Detected: Date.now() or a zero-argument new Date() in an Effect ecosystem file.",
+  ],
+  [
+    "no-effect-sleep-in-test",
+    `${effectImport}const value = Effect.sleep("1 second");`,
+    "Detected: Effect.sleep using live time in a test file.",
+    "fixture.test.ts",
+  ],
+  [
+    "no-effect-run-in-test",
+    `${effectImport}const value = Effect.runPromise(program);`,
+    "Detected: an Effect.runPromise, runSync, or runCallback runtime call in a test file.",
+    "fixture.test.ts",
+  ],
+  [
+    "no-throw-in-effect-generator",
+    `${effectImport}const value = Effect.gen(function* () { throw new Error("boom"); });`,
+    "Detected: a throw statement inside an Effect generator.",
   ],
   [
     "no-option-as",
@@ -193,6 +205,84 @@ const invalidCases = [
     "no-pipe-ladder",
     "const value = pipe(source, Effect.map((item) => pipe(item, normalize)));",
     "Detected: a pipe() call nested inside an argument of another pipe() call.",
+  ],
+  [
+    "prefer-effect-async",
+    `${effectImport}const value = new Promise((resolve) => resolve(1));`,
+    "Detected: a native Promise constructor in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-assert-in-effect-test",
+    `${effectImport}it.effect("works", () => Effect.gen(function* () { expect(value).toBe(1); }));`,
+    "Detected: expect used inside an it.effect test.",
+    "fixture.test.ts",
+  ],
+  [
+    "prefer-effect-cache",
+    `${effectImport}const userCache = new Map();`,
+    "Detected: a cache-named variable initialized with a native Map in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-child-process",
+    `${effectImport}import { execFile } from "node:child_process";`,
+    "Detected: a direct node:child_process import in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-config",
+    `${effectImport}const value = process.env.API_URL;`,
+    "Detected: direct process.env access in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-date-time",
+    `${effectImport}const timestamp = Date.parse(input);`,
+    "Detected: Date.parse used in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-file-system",
+    `${effectImport}import { readFile } from "node:fs/promises";`,
+    "Detected: a direct Node filesystem import in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-http-client",
+    `${effectImport}const response = fetch("https://example.com");`,
+    "Detected: a raw fetch call in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-logging",
+    `${effectImport}const value = Effect.gen(function* () { console.log("working"); });`,
+    "Detected: a console call inside an Effect generator.",
+  ],
+  [
+    "prefer-effect-random",
+    `${effectImport}const value = Math.random();`,
+    "Detected: Math.random used in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-scheduling",
+    `${effectImport}const timer = setTimeout(run, 1000);`,
+    "Detected: setTimeout or setInterval in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-effect-test-layer",
+    `${effectImport}const value = program.pipe(Effect.provide(TestLayer));`,
+    "Detected: Effect.provide used directly inside a test file.",
+    "fixture.test.ts",
+  ],
+  [
+    "prefer-effect-vitest",
+    `${effectImport}import { it } from "vitest";`,
+    "Detected: Vitest APIs imported from vitest in an Effect test file.",
+    "fixture.test.ts",
+  ],
+  [
+    "prefer-schema-json",
+    `${effectImport}const value = JSON.parse(serialized);`,
+    "Detected: JSON.parse or JSON.stringify in an Effect ecosystem file.",
+  ],
+  [
+    "no-schema-sync-in-effect-generator",
+    `${effectImport}const value = Effect.gen(function* () { return Schema.decodeUnknownSync(User)(input); });`,
+    "Detected: a synchronous throwing Schema decoder or encoder inside an Effect generator.",
   ],
   [
     "no-pipeline-fragment-staging",
@@ -225,29 +315,19 @@ const invalidCases = [
     "Detected: a return statement whose value is null.",
   ],
   [
+    "require-return-yield-effect-terminal",
+    `${effectImport}const value = Effect.gen(function* () { yield* Effect.fail("invalid"); });`,
+    "Detected: yield* Effect.fail or yield* Effect.interrupt used as a standalone generator statement.",
+  ],
+  [
     "no-effect-runfork",
     `${effectImport}const fiber = Effect.runForkWith(services)(program);`,
     "Detected: Effect.runFork or Effect.runForkWith inside an Effect ecosystem file.",
   ],
   [
-    "no-string-sentinel-const",
-    "const status = 'ready';",
-    "Detected: a const initialized with a string literal.",
-  ],
-  [
-    "no-string-sentinel-return",
-    "const value = Effect.succeed('ready');",
-    "Detected: Effect.succeed called with a string literal.",
-  ],
-  [
     "no-switch-statement",
     `${effectImport}switch (value) { case 'ready': run(); }`,
     "Detected: a switch statement in an Effect ecosystem file.",
-  ],
-  [
-    "no-ternary",
-    `${effectImport}const value = condition ? first : second;`,
-    "Detected: a conditional expression in an Effect ecosystem file.",
   ],
   [
     "no-try-catch",
@@ -277,8 +357,8 @@ const invalidCases = [
 ] as const;
 
 describe("all converted rules", () => {
-  it.each(invalidCases)("It catches $0 patterns", (ruleName, source, diagnostic) => {
-    const result = lintSourceWithRule(ruleName, source);
+  it.each(invalidCases)("It catches $0 patterns", (ruleName, source, diagnostic, fixtureName) => {
+    const result = lintSourceWithRule(ruleName, source, undefined, fixtureName);
     expect(result.output).toContain(diagnostic);
   });
 });

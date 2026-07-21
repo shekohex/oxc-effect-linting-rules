@@ -3,7 +3,6 @@ import {
   identifierName,
   isCall,
   isConstDeclaration,
-  isEffectCall,
   isFunction,
   isNullishLiteral,
   literalValue,
@@ -33,12 +32,6 @@ const messages = {
     fix: "decode with the canonical Schema first, then use typed Match patterns or ordinary predicates on the decoded value.",
     preserve: "validation errors, nominal instanceof checks, narrowing behavior, and the trusted domain type.",
   }),
-  noManualEffectChannels: remediationMessage({
-    detected: "explicit generic channel arguments on Effect.Effect or Layer.Layer.",
-    problem: "a hand-written success/error/requirements annotation can drift from the composed implementation.",
-    fix: "remove the annotation when inference retains the intended contract; for exported APIs, expose the type on the owning service method and verify all channels before editing.",
-    preserve: "success, error, input requirements, output services, and exported API compatibility.",
-  }),
   noModelOverlayCast: remediationMessage({
     detected: "a non-const TypeScript as assertion on a const initializer in an Effect ecosystem file.",
     problem: "the assertion can hide schema drift or add fields the decoder did not validate.",
@@ -50,18 +43,6 @@ const messages = {
     problem: "boolean coercion is repeated in service flow instead of being defined once at input decoding.",
     fix: "normalize optional boolean input in the owning Schema and consume the decoded boolean directly.",
     preserve: "the distinction between false, absent, invalid, and truthy non-boolean input.",
-  }),
-  noStringSentinelConst: remediationMessage({
-    detected: "a const initialized with a string literal.",
-    problem: "when the string controls branching, it acts as an untyped sentinel rather than a domain state.",
-    fix: "replace control-flow tokens with a tagged union, Option, Result, or another domain value; if this is ordinary text or configuration, configure an exception instead.",
-    preserve: "legitimate text values, serialization format, external protocol values, and exhaustive domain states.",
-  }),
-  noStringSentinelReturn: remediationMessage({
-    detected: "Effect.succeed called with a string literal.",
-    problem: "when the string represents status or control flow, callers must branch on an untyped token.",
-    fix: "return a tagged domain value, Option, or Result; keep a string only when text is the actual success value and configure an exception.",
-    preserve: "public response contracts, localization, serialization, typed errors, and legitimate textual outputs.",
   }),
   noUnknownBooleanCoercionHelper: remediationMessage({
     detected: "a typeof value === boolean check in an Effect file that also contains null-fallback matching.",
@@ -80,12 +61,6 @@ function qualifiedTypeName(node) {
 
 function isEffectTypeReference(node) {
   return node?.type === "TSTypeReference" && qualifiedTypeName(node.typeName) === "Effect.Effect";
-}
-
-function isManualChannelType(node) {
-  if (node?.type !== "TSTypeReference") return false;
-  const name = qualifiedTypeName(node.typeName);
-  return (name === "Effect.Effect" || name === "Layer.Layer") && Boolean(node.typeArguments || node.typeParameters);
 }
 
 function unwrapParameter(parameter) {
@@ -200,15 +175,6 @@ export const typeModelingRules = {
     };
   }),
 
-  "no-manual-effect-channels": defineRule(
-    messages.noManualEffectChannels,
-    (_context, report) => ({
-      TSTypeReference(node) {
-        if (isManualChannelType(node)) report(node);
-      },
-    }),
-  ),
-
   "no-model-overlay-cast": defineEffectFileRule(
     messages.noModelOverlayCast,
     (context, report, enabled) => ({
@@ -245,25 +211,6 @@ export const typeModelingRules = {
       },
     }),
   ),
-
-  "no-string-sentinel-const": defineRule(messages.noStringSentinelConst, (_context, report) => ({
-    VariableDeclaration(node) {
-      if (
-        isConstDeclaration(node) &&
-        node.declarations.some((declarator) => typeof literalValue(declarator.init) === "string")
-      ) {
-        report(node);
-      }
-    },
-  })),
-
-  "no-string-sentinel-return": defineRule(messages.noStringSentinelReturn, (_context, report) => ({
-    CallExpression(node) {
-      if (isEffectCall(node, "succeed") && typeof literalValue(node.arguments[0]) === "string") {
-        report(node);
-      }
-    },
-  })),
 
   "no-unknown-boolean-coercion-helper": defineEffectFileRule(
     messages.noUnknownBooleanCoercionHelper,

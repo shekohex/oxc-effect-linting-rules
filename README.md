@@ -60,8 +60,9 @@ Register plugin directly when using custom subset:
     }
   ],
   "rules": {
-    "effect/no-nested-effect-gen": "error",
-    "effect/no-effect-step-const-staging": "error",
+    "effect/no-effect-gen-callback-alias": "error",
+    "effect/no-effect-fn-callback-alias": "error",
+    "effect/prefer-effect-fn": "error",
     "effect/no-return-in-arrow": "warn"
   }
 }
@@ -102,6 +103,15 @@ Most rules are errors. Shape guidance remains warnings:
 - `no-effect-succeed-variable`
 - `no-flatmap-ladder`
 - `no-option-effect-branch`
+- `prefer-assert-in-effect-test`
+- `prefer-effect-async`
+- `prefer-effect-cache`
+- `prefer-effect-child-process`
+- `prefer-effect-date-time`
+- `prefer-effect-http-client`
+- `prefer-effect-scheduling`
+- `prefer-effect-test-layer`
+- `prefer-schema-json`
 - `no-return-in-arrow`
 - `no-return-in-callback`
 - `warn-effect-sync-wrapper`
@@ -121,7 +131,7 @@ Every rule supports `ignoredPathFragments`. Diagnostics are skipped when current
         "ignoredPathFragments": ["/generated/", ".stories."]
       }
     ],
-    "effect/no-ternary": "off"
+    "effect/prefer-effect-http-client": "off"
   }
 }
 ```

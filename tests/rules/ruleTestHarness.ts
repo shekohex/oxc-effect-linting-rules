@@ -27,6 +27,15 @@ const warningRules = new Set([
   "no-effect-succeed-variable",
   "no-flatmap-ladder",
   "no-option-effect-branch",
+  "prefer-assert-in-effect-test",
+  "prefer-effect-async",
+  "prefer-effect-cache",
+  "prefer-effect-child-process",
+  "prefer-effect-date-time",
+  "prefer-effect-http-client",
+  "prefer-effect-scheduling",
+  "prefer-effect-test-layer",
+  "prefer-schema-json",
   "no-return-in-arrow",
   "no-return-in-callback",
   "warn-effect-sync-wrapper",
@@ -93,9 +102,10 @@ export function lintSourceWithRule(
   ruleName: string,
   source: string,
   ruleConfiguration?: RuleConfiguration,
+  fixtureName = "fixture.tsx",
 ) {
   const tempDir = mkdtempSync(path.join(tmpdir(), "oxc-effect-source-test-"));
-  const fixtureFile = path.join(tempDir, "fixture.tsx");
+  const fixtureFile = path.join(tempDir, fixtureName);
   writeFileSync(fixtureFile, source, "utf8");
 
   try {
