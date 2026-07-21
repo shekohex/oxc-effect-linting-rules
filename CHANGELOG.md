@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/shekohex/oxc-effect-linting-rules/compare/v0.1.0...v0.2.0) (2026-07-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* removes no-manual-effect-channels, no-nested-effect-gen, no-string-sentinel-const, no-string-sentinel-return, no-ternary, no-effect-step-const-staging, and no-effect-wrapper-alias.
+
+### Features
+
+* align lint rules with Effect v4 guidance ([5a382be](https://github.com/shekohex/oxc-effect-linting-rules/commit/5a382be7eb2d89dc35ae5d3df46156bb671f7b0b))
+
 ## [0.1.0](https://github.com/shekohex/oxc-effect-linting-rules/compare/v0.0.7...v0.1.0) (2026-07-19)
 
 
