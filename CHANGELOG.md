@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/shekohex/oxc-effect-linting-rules/compare/v0.2.0...v0.2.1) (2026-07-22)
+
+
+### Features
+
+* prefer Effect tagged-union matchers ([ef61a78](https://github.com/shekohex/oxc-effect-linting-rules/commit/ef61a78e4bd43b29fb298f2c11e472baed77d433))
+
 ## [0.2.0](https://github.com/shekohex/oxc-effect-linting-rules/compare/v0.1.0...v0.2.0) (2026-07-21)
 
 
