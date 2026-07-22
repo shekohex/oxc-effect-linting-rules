@@ -145,6 +145,11 @@ const invalidCases = [
     "Detected: a Match branch containing multiple Effect sequencing steps.",
   ],
   [
+    "no-match-tag-neutral-fallback",
+    `${effectImport}const value = Match.value(event).pipe(Match.when({ _tag: "Added" }, () => 1), Match.when({ _tag: "Removed" }, () => -1), Match.orElse(() => 0));`,
+    "Detected: multiple tagged domain branches followed by a neutral Match.orElse fallback.",
+  ],
+  [
     "no-match-void-branch",
     `${effectImport}const value = Match.when(true, () => Effect.void);`,
     "Detected: a Match branch that returns Effect.void.",
@@ -261,6 +266,16 @@ const invalidCases = [
     "prefer-effect-scheduling",
     `${effectImport}const timer = setTimeout(run, 1000);`,
     "Detected: setTimeout or setInterval in an Effect ecosystem file.",
+  ],
+  [
+    "prefer-match-tags",
+    `${effectImport}const value = Match.value(event).pipe(Match.when({ _tag: "Added" }, handler), Match.exhaustive);`,
+    "Detected: Match.when manually matching a tagged value through a direct _tag object pattern.",
+  ],
+  [
+    "prefer-match-value-tags",
+    `${effectImport}const value = Match.value(event._tag).pipe(Match.when("Added", handler), Match.exhaustive);`,
+    "Detected: Match.value called with a tagged value's _tag property instead of the tagged value.",
   ],
   [
     "prefer-effect-test-layer",

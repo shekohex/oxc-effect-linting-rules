@@ -273,6 +273,24 @@ const messages = {
     fix: "remove an unnecessary branch, or make Match select a value or operation and run the shared Effect pipeline afterward.",
     preserve: "pattern exhaustiveness, intentional no-op behavior, branch laziness, and output type.",
   }),
+  noMatchTagNeutralFallback: remediationMessage({
+    detected: "multiple tagged domain branches followed by a neutral Match.orElse fallback.",
+    problem: "the fallback makes forgotten tags indistinguishable from intentionally neutral tags, so the compiler cannot identify omissions.",
+    fix: "for closed domain projections, use Match.tagsExhaustive and name zero-impact cases explicitly; keep the fallback only for an intentional open projection and configure a narrow exception when needed.",
+    preserve: "intentional zero-impact cases, return type, branch calculations, handler narrowing, and future exhaustiveness checks.",
+  }),
+  preferMatchTags: remediationMessage({
+    detected: "Match.when manually matching a tagged value through a direct _tag object pattern.",
+    problem: "repeating the tagged-union representation hides the domain cases and bypasses Effect's dedicated tag combinators.",
+    fix: "use Match.tag for one ordered branch, Match.tags for grouped partial branches, or Match.tagsExhaustive when every domain case must be handled.",
+    preserve: "handled tags, handler narrowing, branch order, fallback behavior, return type, and exhaustiveness.",
+  }),
+  preferMatchValueTags: remediationMessage({
+    detected: "Match.value called with a tagged value's _tag property instead of the tagged value.",
+    problem: "matching the representation string separates the discriminant from its payload and prevents handlers from receiving the narrowed variant.",
+    fix: "when branches represent variants, pass the tagged value to Match.value and use Match.tags or Match.tagsExhaustive; keep scalar matching only when the tag string itself is the domain input.",
+    preserve: "selected tags, handler inputs, branch outputs, fallback behavior, and exhaustiveness.",
+  }),
   noNestedEffectCall: remediationMessage({
     detected: "an Effect call nested at least three calls deep through first arguments.",
     problem: "the call tree hides sequencing and intermediate values.",
@@ -445,6 +463,43 @@ function matchPipelineHasEffectSequence(node) {
       (isCall(candidate, "Match", "when") || isCall(candidate, "Match", "orElse")) &&
       callbackHasEffectSequence(candidate),
   );
+}
+
+function matchPipelineOperations(node) {
+  if (!isPipeCall(node)) return undefined;
+  const callee = unwrapExpression(node.callee);
+  if (callee?.type === "MemberExpression" && isCall(callee.object, "Match", "value")) {
+    return node.arguments;
+  }
+  if (isIdentifier(callee, "pipe") && isCall(node.arguments[0], "Match", "value")) {
+    return node.arguments.slice(1);
+  }
+  return undefined;
+}
+
+function isDirectTagPattern(node) {
+  const expression = unwrapExpression(node);
+  if (expression?.type !== "ObjectExpression" || expression.properties.length !== 1) return false;
+  const [property] = expression.properties;
+  return (
+    property?.type === "Property" &&
+    propertyName(property) === "_tag" &&
+    typeof literalValue(property.value) === "string"
+  );
+}
+
+function isDirectTagMatchWhen(node) {
+  return isCall(node, "Match", "when") && isDirectTagPattern(node.arguments[0]);
+}
+
+function isNeutralMatchFallback(node) {
+  if (!isCall(node, "Match", "orElse")) return false;
+  const callback = node.arguments.find(isFunction);
+  const result = directlyReturnedExpression(callback);
+  if (result?.type === "ArrayExpression") return result.elements.length === 0;
+  if (isIdentifier(result, "undefined")) return true;
+  const value = literalValue(result);
+  return value === 0 || value === false || value === null || value === "";
 }
 
 function optionMatchHasEffectSequence(node) {
@@ -709,6 +764,47 @@ export const coreRules = {
           )
         ) {
           report(node);
+        }
+      },
+    }),
+  ),
+
+  "no-match-tag-neutral-fallback": defineEffectFileRule(
+    messages.noMatchTagNeutralFallback,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (!enabled()) return;
+        const operations = matchPipelineOperations(node);
+        if (!operations || operations.filter(isDirectTagMatchWhen).length < 2) return;
+        const fallback = operations.find(isNeutralMatchFallback);
+        if (fallback) report(fallback);
+      },
+    }),
+  ),
+
+  "prefer-match-tags": defineEffectFileRule(
+    messages.preferMatchTags,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        if (!enabled()) return;
+        const directTagBranch = matchPipelineOperations(node)?.find(isDirectTagMatchWhen);
+        if (directTagBranch) report(directTagBranch);
+      },
+    }),
+  ),
+
+  "prefer-match-value-tags": defineEffectFileRule(
+    messages.preferMatchValueTags,
+    (_context, report, enabled) => ({
+      CallExpression(node) {
+        const input = unwrapExpression(node.arguments[0]);
+        if (
+          enabled() &&
+          isCall(node, "Match", "value") &&
+          input?.type === "MemberExpression" &&
+          memberName(input) === "_tag"
+        ) {
+          report(input);
         }
       },
     }),

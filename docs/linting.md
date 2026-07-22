@@ -84,6 +84,21 @@ Do not hide sequencing through nested `pipe` ladders, flatMap towers, or generat
 
 Do not implement control flow with `switch` or `case`. Use `Match.value`, `Option.match`, `Result.match`, or `Effect.if` so the decision stays explicit inside one Effect pipeline.
 
+For Effect tagged unions, pass the complete tagged value to `Match.value` and map cases with `Match.tags` or `Match.tagsExhaustive`:
+
+```ts
+const delta = Match.value(event).pipe(
+  Match.tagsExhaustive({
+    CashIssuedToDriver: (issued) => issued.amount.amountMinor,
+    CustomerRefundPaid: (refund) => -refund.amount.amountMinor,
+  }),
+)
+```
+
+Do not repeat `Match.when({ _tag: "..." }, ...)` for direct tag-only patterns. Use `Match.tag` for one ordered branch, `Match.tags` for grouped partial branches, or `Match.tagsExhaustive` for a closed domain mapping. Prefer matching the complete tagged value instead of calling `Match.value(event._tag)`. Direct `_tag` reads remain valid at representation boundaries such as persistence, serialization, translation lookup, stable keys, and constructors.
+
+Review multi-case tagged domain projections ending with neutral `Match.orElse(() => 0 | false | null | undefined | "" | [])`. For closed projections, map all tags with `Match.tagsExhaustive` and list intentionally neutral cases explicitly so new tags fail compilation. Keep a fallback for intentional open projections and configure a narrow exception when that policy is stable.
+
 Do not add post-decode guards or fallback defaults unless the domain actually requires them.
 
 Do not encode sequential side effects through `Effect.all(..., { concurrency: 1 })`.
